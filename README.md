@@ -31,7 +31,7 @@ composer require resguar/afip-sdk
 - ✅ PHP 8.1+
 - ✅ **PSR-12** y mejores prácticas de programación
 
-## Instalación
+## 📥 Instalación
 
 ### Requisitos
 
@@ -40,11 +40,53 @@ composer require resguar/afip-sdk
 - Extensiones PHP: `openssl`, `soap`
 - Certificados digitales de AFIP
 
-### Instalación via Composer
+### Opción 1: Desde GitHub (Recomendado)
+
+```bash
+# Agregar al composer.json de tu proyecto:
+{
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/resguarit/Afip-sdk.git"
+        }
+    ],
+    "require": {
+        "resguar/afip-sdk": "dev-main"
+    }
+}
+
+# Luego instalar:
+composer require resguar/afip-sdk:dev-main
+```
+
+### Opción 2: Desde Repositorio Local (Desarrollo)
+
+```bash
+# Agregar al composer.json:
+{
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../afip-sdk-resguar"
+        }
+    ],
+    "require": {
+        "resguar/afip-sdk": "@dev"
+    }
+}
+
+# Instalar:
+composer require resguar/afip-sdk:@dev
+```
+
+### Opción 3: Desde Packagist (Cuando esté publicado)
 
 ```bash
 composer require resguar/afip-sdk
 ```
+
+**📖 Ver [Guía de Uso Completa](GUIA_USO_LARAVEL.md) para más detalles**
 
 ### Publicar configuración y migraciones
 
@@ -80,18 +122,24 @@ AFIP_DEFAULT_POINT_OF_SALE=1
 1. Coloca tus certificados digitales en la ruta especificada en `AFIP_CERTIFICATES_PATH`
 2. Asegúrate de que los archivos tengan los nombres correctos (`private_key.key` y `certificate.crt`)
 
-## 🧪 Pruebas
+## 📖 Guías de Uso
 
-Para probar el SDK, consulta la [Guía de Pruebas](GUIA_PRUEBAS.md) que incluye:
-- Configuración inicial paso a paso
-- Scripts de prueba listos para usar
-- Solución de problemas comunes
-- Ejemplos prácticos
+- **[Guía de Uso en Laravel](GUIA_USO_LARAVEL.md)** ⭐ **EMPIEZA AQUÍ** - Instalación y uso completo
+- [Checklist Pre-Producción](CHECKLIST_PRE_PRODUCCION.md) - Qué necesitas antes de probar
+- [Guía de Pruebas](GUIA_PRUEBAS.md) - Ejemplos y scripts de prueba
+- [Configurar Certificados](CONFIGURAR_CERTIFICADOS.md) - Guía de certificados
+- [Ubicar Certificados](UBICAR_CERTIFICADOS.md) - Dónde colocar archivos
 
-**Prueba rápida:**
+## 🧪 Pruebas Rápidas
+
 ```bash
-# Configura tus certificados y variables de entorno
-php tests/test-simple.php
+# 1. Verificar configuración
+php artisan tinker
+# Luego: config('afip.cuit')
+
+# 2. Probar autenticación
+use Resguar\AfipSdk\Facades\Afip;
+Afip::isAuthenticated()
 ```
 
 ## Uso
