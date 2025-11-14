@@ -1,0 +1,46 @@
+# Dependencies
+/vendor/
+composer.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.phpunit.result.cache
+coverage/
+.phpunit.cache
+
+# Certificates (nunca subir certificados reales)
+storage/certificates/*.key
+storage/certificates/*.crt
+storage/certificates/*.pem
+certificates/*.key
+certificates/*.crt
+certificates/*.pem
+*.key
+*.crt
+*.pem
+
+# Documentación PDF (muy grandes, no subir al repo)
+*.pdf
+
+# Environment
+.env
+.env.testing
+
+# Build
+build/
+dist/
+
+# Logs
+*.log
+logs/
+

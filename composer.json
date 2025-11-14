@@ -1,0 +1,64 @@
+{
+    "name": "resguar/afip-sdk",
+    "description": "SDK independiente y reutilizable para integración con AFIP (Administración Federal de Ingresos Públicos de Argentina) - Facturación Electrónica",
+    "type": "library",
+    "keywords": [
+        "afip",
+        "facturacion-electronica",
+        "argentina",
+        "laravel",
+        "sdk"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Resguar IT",
+            "email": "info@resguar.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^11.0",
+        "illuminate/database": "^11.0",
+        "illuminate/http": "^11.0",
+        "guzzlehttp/guzzle": "^7.0",
+        "ext-openssl": "*",
+        "ext-soap": "*"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0",
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Resguar\\AfipSdk\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Resguar\\AfipSdk\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Resguar\\AfipSdk\\AfipServiceProvider"
+            ],
+            "aliases": {
+                "Afip": "Resguar\\AfipSdk\\Facades\\Afip"
+            }
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "sort-packages": true,
+        "preferred-install": "dist",
+        "optimize-autoloader": true
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test-coverage": "phpunit --coverage-html coverage"
+    }
+}
+
