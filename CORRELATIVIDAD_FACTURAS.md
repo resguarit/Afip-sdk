@@ -6,25 +6,32 @@
 
 ## ✅ Respuesta Corta
 
-**No, el SDK NO consulta ARCA. Consulta directamente a AFIP, y eso es lo correcto.**
+**El SDK consulta el Web Service WSFE de AFIP (no el portal ARCA), y eso es lo correcto.**
 
 ## 🔍 Explicación Detallada
 
-### ¿Qué es ARCA?
+### ARCA y AFIP: Aclaración
 
-**ARCA** (Administración de Relaciones con Contribuyentes de AFIP) es el sistema de AFIP para:
-- ✅ Gestionar certificados digitales
-- ✅ Configurar puntos de venta
-- ✅ Administrar datos del contribuyente
+**ARCA** (Administración de Relaciones con Contribuyentes de AFIP) es parte de AFIP, pero es el **portal web administrativo** donde gestionas:
+- ✅ Certificados digitales
+- ✅ Configuración de puntos de venta
+- ✅ Datos del contribuyente
 - ❌ **NO almacena facturas autorizadas**
 
-### ¿Dónde se Almacenan las Facturas?
-
-Las facturas se autorizan y almacenan en **AFIP directamente** a través del Web Service **WSFE** (Web Service de Facturación Electrónica).
+**WSFE** (Web Service de Facturación Electrónica) también es parte de AFIP, pero es el **Web Service** donde:
+- ✅ Se autorizan las facturas
+- ✅ Se almacenan las facturas autorizadas
+- ✅ Se consultan los últimos comprobantes autorizados
 
 ### ¿Qué Consulta el SDK?
 
-El SDK consulta **directamente a AFIP** usando el método `FECompUltimoAutorizado` del Web Service WSFE:
+El SDK consulta **WSFE** (Web Service de AFIP), no el portal ARCA. Ambos son parte de AFIP, pero tienen funciones diferentes:
+- **ARCA**: Portal web para gestión administrativa
+- **WSFE**: Web Service para facturación electrónica
+
+### ¿Qué Consulta el SDK?
+
+El SDK consulta el **Web Service WSFE de AFIP** usando el método `FECompUltimoAutorizado`:
 
 ```php
 // El SDK hace esto automáticamente:
@@ -43,23 +50,23 @@ $lastInvoice = $wsfeClient->FECompUltimoAutorizado([
 // ]
 ```
 
-## ✅ ¿Por Qué Es Correcto Consultar AFIP Directamente?
+## ✅ ¿Por Qué Es Correcto Consultar WSFE?
 
-### 1. **AFIP es la Fuente de Verdad**
+### 1. **WSFE es la Fuente de Verdad para Facturas**
 
-- ✅ AFIP es quien **autoriza** las facturas
-- ✅ AFIP es quien **almacena** las facturas autorizadas
-- ✅ AFIP es quien **valida** la correlatividad
+- ✅ WSFE es quien **autoriza** las facturas
+- ✅ WSFE es quien **almacena** las facturas autorizadas
+- ✅ WSFE es quien **valida** la correlatividad
 
 ### 2. **ARCA No Tiene Esa Información**
 
-- ❌ ARCA no almacena facturas
+- ❌ ARCA (portal administrativo) no almacena facturas
 - ❌ ARCA solo gestiona certificados y configuraciones
 - ❌ Consultar ARCA para números de factura sería incorrecto
 
 ### 3. **Garantiza Correlatividad Real**
 
-Al consultar AFIP directamente:
+Al consultar WSFE (Web Service de AFIP):
 - ✅ Obtienes el **último número realmente autorizado**
 - ✅ Evitas duplicados o saltos en la numeración
 - ✅ Cumples con los requisitos de AFIP
@@ -69,7 +76,7 @@ Al consultar AFIP directamente:
 ```
 1. Tú llamas: Afip::authorizeInvoice($invoiceData)
    ↓
-2. SDK consulta AFIP: FECompUltimoAutorizado
+2. SDK consulta WSFE (Web Service de AFIP): FECompUltimoAutorizado
    → Obtiene: "Último autorizado: 105"
    ↓
 3. SDK ajusta número automáticamente:
@@ -77,11 +84,11 @@ Al consultar AFIP directamente:
    - Si enviaste 105 → Ajusta a 106
    - Si enviaste 106 → Usa 106 (correcto)
    ↓
-4. SDK autoriza con AFIP: FECAESolicitar
-   → AFIP valida correlatividad
-   → AFIP autoriza y retorna CAE
+4. SDK autoriza con WSFE: FECAESolicitar
+   → WSFE valida correlatividad
+   → WSFE autoriza y retorna CAE
    ↓
-5. Factura queda registrada en AFIP
+5. Factura queda registrada en AFIP (a través de WSFE)
 ```
 
 ## 📊 Ejemplo Práctico
@@ -92,28 +99,28 @@ Al consultar AFIP directamente:
 // Caso 1: Envías número 0 (auto)
 $invoiceData = ['invoiceNumber' => 0, ...];
 $result = Afip::authorizeInvoice($invoiceData);
-// SDK consulta AFIP → Último: 105
+// SDK consulta WSFE → Último: 105
 // SDK ajusta a: 106
 // Resultado: $result->invoiceNumber = 106 ✅
 
 // Caso 2: Envías número 100 (menor al último)
 $invoiceData = ['invoiceNumber' => 100, ...];
 $result = Afip::authorizeInvoice($invoiceData);
-// SDK consulta AFIP → Último: 105
+// SDK consulta WSFE → Último: 105
 // SDK ajusta a: 106 (porque 100 < 105)
 // Resultado: $result->invoiceNumber = 106 ✅
 
 // Caso 3: Envías número 106 (correcto)
 $invoiceData = ['invoiceNumber' => 106, ...];
 $result = Afip::authorizeInvoice($invoiceData);
-// SDK consulta AFIP → Último: 105
+// SDK consulta WSFE → Último: 105
 // SDK usa: 106 (porque 106 > 105)
 // Resultado: $result->invoiceNumber = 106 ✅
 
 // Caso 4: Envías número 110 (muy adelante)
 $invoiceData = ['invoiceNumber' => 110, ...];
 $result = Afip::authorizeInvoice($invoiceData);
-// SDK consulta AFIP → Último: 105
+// SDK consulta WSFE → Último: 105
 // SDK usa: 110 (porque 110 > 105)
 // ⚠️ ADVERTENCIA: Esto puede causar problemas si hay facturas intermedias
 ```
@@ -124,16 +131,16 @@ Si autorizaste facturas fuera del SDK (por ejemplo, desde otro sistema o manualm
 
 ```php
 // Situación:
-// - Última en AFIP: 105
+// - Última en WSFE (AFIP): 105
 // - Pero en tu sistema local tienes: 110
 // - Facturas 106-109 fueron autorizadas por otro sistema
 
 // Si envías 110:
 $invoiceData = ['invoiceNumber' => 110, ...];
 $result = Afip::authorizeInvoice($invoiceData);
-// SDK consulta AFIP → Último: 105
+// SDK consulta WSFE → Último: 105
 // SDK usa: 110 (porque 110 > 105)
-// ⚠️ AFIP puede rechazar si 106-109 ya fueron autorizadas
+// ⚠️ WSFE puede rechazar si 106-109 ya fueron autorizadas
 ```
 
 **Solución:** Siempre deja que el SDK ajuste automáticamente usando `invoiceNumber => 0`.
@@ -151,7 +158,7 @@ $invoiceData = [
 
 $result = Afip::authorizeInvoice($invoiceData);
 // El SDK:
-// 1. Consulta último en AFIP
+// 1. Consulta último en WSFE (Web Service de AFIP)
 // 2. Ajusta al siguiente número
 // 3. Autoriza
 ```
@@ -187,14 +194,20 @@ echo "Fecha: " . $lastInvoice['CbteFch'] . "\n";
 
 ## 📝 Resumen
 
-| Aspecto | ARCA | AFIP (WSFE) |
-|---------|------|-------------|
+| Aspecto | ARCA (Portal Web) | WSFE (Web Service) |
+|---------|-------------------|---------------------|
+| **Parte de AFIP** | ✅ Sí | ✅ Sí |
+| **Función** | Portal administrativo | Web Service de facturación |
 | **Almacena facturas** | ❌ No | ✅ Sí |
 | **Autoriza facturas** | ❌ No | ✅ Sí |
 | **Consulta última factura** | ❌ No disponible | ✅ Sí (FECompUltimoAutorizado) |
-| **Fuente de verdad** | ❌ No | ✅ Sí |
+| **Fuente de verdad para facturas** | ❌ No | ✅ Sí |
 
-**Conclusión:** El SDK consulta **AFIP directamente** (no ARCA), y eso es **correcto y necesario** para garantizar la correlatividad real de las facturas.
+**Conclusión:** 
+- ARCA y WSFE son **ambos parte de AFIP**, pero tienen funciones diferentes
+- ARCA es el **portal web administrativo** (certificados, configuraciones)
+- WSFE es el **Web Service de facturación** (autorización de facturas)
+- El SDK consulta **WSFE** (no el portal ARCA), y eso es **correcto y necesario** para garantizar la correlatividad real de las facturas
 
 ## ❓ Preguntas Frecuentes
 
@@ -208,7 +221,10 @@ R: El SDK siempre usa el último autorizado en AFIP. Si hay facturas en tu BD qu
 R: Sí, es la forma más segura. Siempre usa `invoiceNumber => 0` y deja que el SDK ajuste.
 
 **P: ¿El SDK consulta ARCA en algún momento?**
-R: No, ARCA solo se usa para gestionar certificados. El SDK no consulta ARCA para números de factura.
+R: No, ARCA es el portal web administrativo de AFIP (para gestionar certificados y configuraciones). El SDK consulta WSFE (Web Service de AFIP) para números de factura, no el portal ARCA.
+
+**P: ¿ARCA y AFIP son lo mismo?**
+R: ARCA es parte de AFIP. ARCA es el portal web administrativo, mientras que WSFE es el Web Service de facturación. Ambos son sistemas de AFIP pero con funciones diferentes.
 
 ---
 
