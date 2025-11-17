@@ -88,12 +88,9 @@ class InvoiceBuilder
      */
     protected function buildFromArray(array $data): array
     {
-        // TODO: Implementar construcción desde array
-        // - Validar estructura
-        // - Mapear a formato AFIP
-        // - Validar datos requeridos
-
-        return $this->invoice;
+        // Si el array ya tiene la estructura correcta, retornarlo directamente
+        // Esto permite pasar arrays con la estructura esperada por el SDK
+        return $data;
     }
 
     /**
