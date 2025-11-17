@@ -125,10 +125,11 @@ AFIP_DEFAULT_POINT_OF_SALE=1
 ## 📖 Guías de Uso
 
 - **[Guía de Uso en Laravel](GUIA_USO_LARAVEL.md)** ⭐ **EMPIEZA AQUÍ** - Instalación y uso completo
+- **[Integración en Sistema POS](INTEGRACION_POS.md)** 🎯 **PARA POS** - Guía específica para sistemas POS
 - [Checklist Pre-Producción](CHECKLIST_PRE_PRODUCCION.md) - Qué necesitas antes de probar
 - [Guía de Pruebas](GUIA_PRUEBAS.md) - Ejemplos y scripts de prueba
 - [Configurar Certificados](CONFIGURAR_CERTIFICADOS.md) - Guía de certificados
-- [Ubicar Certificados](UBICAR_CERTIFICADOS.md) - Dónde colocar archivos
+- [Instalación Rápida](INSTALACION_RAPIDA.md) - Setup en 5 minutos
 
 ## 🧪 Pruebas Rápidas
 
