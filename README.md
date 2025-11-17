@@ -1,4 +1,4 @@
-# AFIP SDK para Laravel
+# AFIP SDK para Laravel - Guía Completa de Integración
 
 [![PHP Version](https://img.shields.io/badge/php-8.1%2B-blue.svg)](https://www.php.net/)
 [![Laravel Version](https://img.shields.io/badge/laravel-11%2B-red.svg)](https://laravel.com/)
@@ -6,44 +6,42 @@
 
 SDK independiente y reutilizable para integración con AFIP (Administración Federal de Ingresos Públicos de Argentina) - Facturación Electrónica.
 
-## 📦 Instalación
+## 📋 Tabla de Contenidos
 
+- [Requisitos](#-requisitos)
+- [Instalación](#-instalación)
+- [Configuración](#-configuración)
+- [Uso Básico](#-uso-básico)
+- [Integración en Sistema POS](#-integración-en-sistema-pos)
+- [Troubleshooting](#-troubleshooting)
+- [Documentación Adicional](#-documentación-adicional)
+
+---
+
+## ✅ Requisitos
+
+Antes de comenzar, asegúrate de tener:
+
+- ✅ PHP 8.1 o superior
+- ✅ Laravel 11 o superior
+- ✅ Extensiones PHP: `openssl`, `soap`
+- ✅ Certificados digitales de AFIP (homologación o producción)
+- ✅ Configuración completada en ARCA/AFIP
+
+**Verificar extensiones:**
 ```bash
-composer require resguar/afip-sdk
+php -m | grep -E "openssl|soap"
 ```
 
-## Características
+---
 
-- ✅ Integración completa con Web Services de AFIP (WSAA, WSFE)
-- ✅ **Correlatividad automática**: Consulta último comprobante antes de autorizar
-- ✅ Builder Pattern para construcción flexible de comprobantes
-- ✅ Soporte para múltiples fuentes de datos (Eloquent, arrays, objetos)
-- ✅ **Cache automático de tokens de autenticación** (12 horas, según especificación)
-- ✅ **Logging integrado** con niveles configurables
-- ✅ **Retry logic con exponential backoff** para errores temporales
-- ✅ **Validación de datos** con reglas de negocio
-- ✅ **DTOs (Data Transfer Objects)** para respuestas estructuradas
-- ✅ **Helpers para SOAP** con manejo de errores mejorado
-- ✅ Manejo robusto de errores con excepciones personalizadas
-- ✅ Soporte para entornos de testing y producción
-- ✅ Gestión de certificados digitales
-- ✅ Compatible con Laravel 11+
-- ✅ PHP 8.1+
-- ✅ **PSR-12** y mejores prácticas de programación
+## 🚀 Instalación
 
-## 📥 Instalación
+### Paso 1: Agregar al `composer.json`
 
-### Requisitos
+Edita el archivo `composer.json` de tu proyecto Laravel y agrega el repositorio:
 
-- PHP 8.1 o superior
-- Laravel 11 o superior
-- Extensiones PHP: `openssl`, `soap`
-- Certificados digitales de AFIP
-
-### Opción 1: Desde GitHub (Recomendado)
-
-```bash
-# Agregar al composer.json de tu proyecto:
+```json
 {
     "repositories": [
         {
@@ -55,140 +53,171 @@ composer require resguar/afip-sdk
         "resguar/afip-sdk": "dev-main"
     }
 }
+```
 
-# Luego instalar:
+### Paso 2: Instalar el SDK
+
+```bash
 composer require resguar/afip-sdk:dev-main
 ```
 
-### Opción 2: Desde Repositorio Local (Desarrollo)
+### Paso 3: Publicar Configuración
 
 ```bash
-# Agregar al composer.json:
-{
-    "repositories": [
-        {
-            "type": "path",
-            "url": "../afip-sdk-resguar"
-        }
-    ],
-    "require": {
-        "resguar/afip-sdk": "@dev"
-    }
-}
-
-# Instalar:
-composer require resguar/afip-sdk:@dev
-```
-
-### Opción 3: Desde Packagist (Cuando esté publicado)
-
-```bash
-composer require resguar/afip-sdk
-```
-
-**📖 Ver [Guía de Uso Completa](GUIA_USO_LARAVEL.md) para más detalles**
-
-### Publicar configuración y migraciones
-
-```bash
-# Publicar configuración
 php artisan vendor:publish --tag=afip-config
-
-# Publicar migraciones
-php artisan vendor:publish --tag=afip-migrations
-
-# Ejecutar migraciones
-php artisan migrate
 ```
 
-## Configuración
+Esto crea el archivo `config/afip.php` en tu proyecto.
 
-### Variables de entorno
+---
 
-Agrega las siguientes variables a tu archivo `.env`:
+## ⚙️ Configuración
+
+### Paso 1: Configurar Variables de Entorno
+
+Edita tu archivo `.env` y agrega:
 
 ```env
+# ============================================
+# CONFIGURACIÓN AFIP
+# ============================================
+
+# Entorno: 'testing' para homologación, 'production' para producción
 AFIP_ENVIRONMENT=testing
-AFIP_CUIT=20123456789
-AFIP_CERTIFICATES_PATH=/ruta/a/certificados
-AFIP_CERTIFICATE_KEY=private_key.key
-AFIP_CERTIFICATE_CRT=certificate.crt
-AFIP_CERTIFICATE_PASSWORD=tu_password
+
+# CUIT del contribuyente (sin guiones, 11 dígitos)
+AFIP_CUIT=20457809027
+
+# Ruta donde están los certificados (relativa a la raíz del proyecto)
+AFIP_CERTIFICATES_PATH=storage/certificates
+
+# Nombres de los archivos de certificado
+AFIP_CERTIFICATE_KEY=clave_privada.key
+AFIP_CERTIFICATE_CRT=certificado.crt
+
+# Contraseña de la clave privada (dejar vacío si no tiene)
+AFIP_CERTIFICATE_PASSWORD=
+
+# Punto de venta por defecto
 AFIP_DEFAULT_POINT_OF_SALE=1
+
+# Cache (opcional, valores por defecto)
+AFIP_CACHE_ENABLED=true
+AFIP_CACHE_TTL=43200
 ```
 
-### Configuración de certificados
-
-1. Coloca tus certificados digitales en la ruta especificada en `AFIP_CERTIFICATES_PATH`
-2. Asegúrate de que los archivos tengan los nombres correctos (`private_key.key` y `certificate.crt`)
-
-## 📖 Guías de Uso
-
-- **[Guía de Uso en Laravel](GUIA_USO_LARAVEL.md)** ⭐ **EMPIEZA AQUÍ** - Instalación y uso completo
-- **[Integración en Sistema POS](INTEGRACION_POS.md)** 🎯 **PARA POS** - Guía específica para sistemas POS
-- **[Explicación de Funciones del SDK](EXPLICACION_FUNCIONES_SDK.md)** 🔍 **CÓMO FUNCIONA** - Qué hace cada función internamente
-- [Checklist Pre-Producción](CHECKLIST_PRE_PRODUCCION.md) - Qué necesitas antes de probar
-- [Guía de Pruebas](GUIA_PRUEBAS.md) - Ejemplos y scripts de prueba
-- [Configurar Certificados](CONFIGURAR_CERTIFICADOS.md) - Guía de certificados
-- [Instalación Rápida](INSTALACION_RAPIDA.md) - Setup en 5 minutos
-
-## 🧪 Pruebas Rápidas
+### Paso 2: Colocar Certificados
 
 ```bash
-# 1. Verificar configuración
-php artisan tinker
-# Luego: config('afip.cuit')
+# Crear directorio para certificados
+mkdir -p storage/certificates
 
-# 2. Probar autenticación
-use Resguar\AfipSdk\Facades\Afip;
-Afip::isAuthenticated()
+# Copiar tus certificados (ajusta las rutas según tu caso)
+cp /ruta/a/certificado.crt storage/certificates/
+cp /ruta/a/clave_privada.key storage/certificates/
+
+# Ajustar permisos (IMPORTANTE para seguridad)
+chmod 600 storage/certificates/clave_privada.key
+chmod 644 storage/certificates/certificado.crt
 ```
 
-## Uso
+**⚠️ IMPORTANTE:**
+- **NUNCA** subas los certificados al repositorio Git
+- Asegúrate de que estén en `.gitignore`
+- Los certificados deben tener los nombres exactos especificados en `.env`
 
-### Opción 1: Usando la Facade
+### Paso 3: Limpiar Cache
+
+```bash
+php artisan config:clear
+php artisan cache:clear
+```
+
+### Paso 4: Verificar Configuración
+
+```bash
+php artisan tinker
+```
+
+```php
+// Verificar configuración
+config('afip.cuit');           // Debe mostrar tu CUIT
+config('afip.environment');    // Debe mostrar 'testing' o 'production'
+config('afip.certificates.path'); // Debe mostrar la ruta correcta
+
+// Probar autenticación
+use Resguar\AfipSdk\Facades\Afip;
+Afip::isAuthenticated(); // Debe retornar true/false
+```
+
+---
+
+## 📖 Uso Básico
+
+### Opción 1: Usando la Facade (Recomendado)
 
 ```php
 use Resguar\AfipSdk\Facades\Afip;
+use Resguar\AfipSdk\Exceptions\AfipException;
 
-// Autorizar una factura desde un modelo Eloquent
-// El SDK automáticamente consulta el último comprobante y ajusta el número
-$result = Afip::authorizeInvoice($sale);
+try {
+    // Preparar datos de la factura
+    $invoiceData = [
+        'pointOfSale' => 1,
+        'invoiceType' => 1, // 1 = Factura A
+        'invoiceNumber' => 0, // 0 = auto (se ajusta automáticamente)
+        'date' => now()->format('Ymd'),
+        'customerCuit' => '20123456789',
+        'customerDocumentType' => 80, // 80 = CUIT
+        'customerDocumentNumber' => '20123456789',
+        'concept' => 1, // 1 = Productos
+        'items' => [
+            [
+                'code' => 'PROD001',
+                'description' => 'Producto de ejemplo',
+                'quantity' => 1,
+                'unitPrice' => 100.0,
+                'taxRate' => 21.0,
+            ]
+        ],
+        'netAmount' => 100.0,
+        'ivaTotal' => 21.0,
+        'total' => 121.0,
+        'ivaItems' => [
+            [
+                'id' => 5, // 21%
+                'baseAmount' => 100.0,
+                'amount' => 21.0,
+            ]
+        ],
+    ];
 
-// El resultado es un InvoiceResponse DTO
-echo $result->cae; // Código de Autorización Electrónico
-echo $result->caeExpirationDate; // Fecha de vencimiento
-echo $result->invoiceNumber; // Número de comprobante
+    // Autorizar factura (el SDK hace TODO automáticamente)
+    $result = Afip::authorizeInvoice($invoiceData);
 
-// Verificar si el CAE está vigente
-if ($result->isCaeValid()) {
-    // CAE válido
+    // El resultado es un InvoiceResponse DTO
+    echo "CAE: " . $result->cae . "\n";
+    echo "Vencimiento: " . $result->caeExpirationDate . "\n";
+    echo "Número: " . $result->invoiceNumber . "\n";
+
+    // Verificar si el CAE está vigente
+    if ($result->isCaeValid()) {
+        echo "CAE válido\n";
+    }
+
+} catch (AfipException $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+    if ($e->getAfipCode()) {
+        echo "Código AFIP: " . $e->getAfipCode() . "\n";
+    }
 }
-
-// Autorizar desde un array
-$invoice = [
-    'pointOfSale' => 1,
-    'invoiceType' => 1,
-    'customerCuit' => '20123456789',
-    // ... más datos
-];
-$result = Afip::authorizeInvoice($invoice);
-
-// Obtener último comprobante autorizado (se consulta automáticamente antes de autorizar)
-$lastInvoice = Afip::getLastAuthorizedInvoice(1, 1);
-// Retorna: ['CbteNro' => 100, 'CbteFch' => '20240101', 'PtoVta' => 1, 'CbteTipo' => 1]
-
-// Obtener tipos de comprobantes
-$invoiceTypes = Afip::getInvoiceTypes();
-
-// Obtener puntos de venta
-$pointsOfSale = Afip::getPointOfSales();
 ```
 
-### Opción 2: Inyección de dependencias
+### Opción 2: Inyección de Dependencias
 
 ```php
 use Resguar\AfipSdk\Contracts\AfipServiceInterface;
+use Resguar\AfipSdk\DTOs\InvoiceResponse;
 
 class InvoiceController
 {
@@ -196,267 +225,493 @@ class InvoiceController
         private AfipServiceInterface $afipService
     ) {}
 
-    public function authorize($sale)
+    public function authorize(array $invoiceData): InvoiceResponse
     {
-        $result = $this->afipService->authorizeInvoice($sale);
-        
-        // Procesar resultado
-        return $result;
+        return $this->afipService->authorizeInvoice($invoiceData);
     }
 }
 ```
 
-### Opción 3: Usando el InvoiceBuilder
+### Obtener Último Comprobante Autorizado
 
 ```php
-use Resguar\AfipSdk\Builders\InvoiceBuilder;
+use Resguar\AfipSdk\Facades\Afip;
 
-// Construir desde un modelo
-$invoice = InvoiceBuilder::from($sale)
-    ->pointOfSale(1)
-    ->invoiceType(1)
-    ->date(now())
-    ->build();
+// Consultar último comprobante autorizado
+$lastInvoice = Afip::getLastAuthorizedInvoice(
+    pointOfSale: 1,
+    invoiceType: 1
+);
 
-// Construir desde un array
-$invoice = InvoiceBuilder::from($data)
-    ->customerCuit('20123456789')
-    ->addItem(['description' => 'Producto 1', 'quantity' => 1, 'price' => 100])
-    ->total(121)
-    ->build();
+// Retorna:
+// [
+//     'CbteNro' => 105,
+//     'CbteFch' => '20240101',
+//     'PtoVta' => 1,
+//     'CbteTipo' => 1
+// ]
 ```
 
-## Estructura del Proyecto
+**Nota:** El SDK **automáticamente** consulta el último comprobante antes de autorizar para asegurar correlatividad. No necesitas hacerlo manualmente.
 
-```
-afip-sdk-php/
-├── src/
-│   ├── Services/
-│   │   ├── AfipService.php
-│   │   ├── WsaaService.php
-│   │   ├── WsfeService.php
-│   │   └── CertificateManager.php
-│   ├── Builders/
-│   │   └── InvoiceBuilder.php
-│   ├── Models/
-│   │   ├── AfipConfiguration.php
-│   │   └── PointOfSale.php
-│   ├── Exceptions/
-│   │   ├── AfipException.php
-│   │   ├── AfipAuthenticationException.php
-│   │   └── AfipAuthorizationException.php
-│   ├── Contracts/
-│   │   └── AfipServiceInterface.php
-│   ├── Facades/
-│   │   └── Afip.php
-│   └── AfipServiceProvider.php
-├── config/
-│   └── afip.php
-├── database/
-│   └── migrations/
-├── tests/
-└── README.md
-```
+---
 
-## Modelos
+## 🎯 Integración en Sistema POS
 
-### AfipConfiguration
+### Paso 1: Agregar Método en SaleService
 
-Almacena la configuración de AFIP para diferentes contribuyentes o entornos.
+Agrega este método a tu `SaleService`:
 
 ```php
-use Resguar\AfipSdk\Models\AfipConfiguration;
-
-$config = AfipConfiguration::create([
-    'name' => 'Configuración Principal',
-    'cuit' => '20123456789',
-    'environment' => 'testing',
-    'is_active' => true,
-]);
-```
-
-### PointOfSale
-
-Gestiona los puntos de venta habilitados.
-
-```php
-use Resguar\AfipSdk\Models\PointOfSale;
-
-$pos = PointOfSale::create([
-    'afip_configuration_id' => $config->id,
-    'number' => 1,
-    'name' => 'Punto de Venta Principal',
-    'is_active' => true,
-]);
-```
-
-## Características Avanzadas
-
-### Cache de Tokens
-
-El SDK cachea automáticamente los tokens de autenticación para evitar solicitudes innecesarias a AFIP. Los tokens son válidos por 24 horas.
-
-```php
-// El cache se maneja automáticamente
-$result = Afip::authorizeInvoice($sale); // Primera llamada: obtiene token nuevo
-$result2 = Afip::authorizeInvoice($sale2); // Segunda llamada: usa token del cache
-
-// Limpiar cache manualmente si es necesario
-$wsaaService = app(\Resguar\AfipSdk\Services\WsaaService::class);
-$wsaaService->clearTokenCache('wsfe'); // Limpiar cache de un servicio
-$wsaaService->clearTokenCache(); // Limpiar todo el cache
-```
-
-### Logging
-
-El SDK registra automáticamente todas las operaciones importantes:
-
-```php
-// Configurar logging en config/afip.php
-'logging' => [
-    'enabled' => true,
-    'channel' => 'daily', // Canal de Laravel
-    'level' => 'info', // Nivel mínimo
-],
-```
-
-Los logs incluyen:
-- Autenticaciones y obtención de tokens
-- Autorizaciones de comprobantes
-- Errores y excepciones
-- Operaciones de cache
-
-### Validación de Datos
-
-El SDK valida automáticamente los datos antes de enviarlos a AFIP:
-
-```php
-use Resguar\AfipSdk\Helpers\ValidatorHelper;
-
-// Validar CUIT
-if (ValidatorHelper::validateCuit('20123456789')) {
-    // CUIT válido
-}
-
-// Formatear CUIT
-$formatted = ValidatorHelper::formatCuit('20123456789'); // 20-12345678-9
-```
-
-### Retry Logic
-
-El SDK incluye lógica de reintentos automáticos para errores temporales (timeouts, problemas de conexión):
-
-```php
-// Configurar en config/afip.php
-'retry' => [
-    'enabled' => true,
-    'max_attempts' => 3,
-    'delay' => 1000, // milisegundos (exponential backoff)
-],
-```
-
-### DTOs (Data Transfer Objects)
-
-Las respuestas se devuelven como DTOs tipados:
-
-```php
-$response = Afip::authorizeInvoice($sale);
-
-// Propiedades tipadas
-$response->cae; // string
-$response->caeExpirationDate; // string (Ymd)
-$response->invoiceNumber; // int
-$response->pointOfSale; // int
-
-// Métodos útiles
-$response->isCaeValid(); // bool
-$response->toArray(); // array
-```
-
-## Manejo de Errores
-
-El SDK utiliza excepciones personalizadas para un mejor manejo de errores:
-
-```php
+use Resguar\AfipSdk\Facades\Afip;
 use Resguar\AfipSdk\Exceptions\AfipException;
-use Resguar\AfipSdk\Exceptions\AfipAuthenticationException;
-use Resguar\AfipSdk\Exceptions\AfipAuthorizationException;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
-try {
-    $result = Afip::authorizeInvoice($sale);
-} catch (AfipAuthenticationException $e) {
-    // Error de autenticación
-    logger()->error('Error de autenticación AFIP', [
-        'message' => $e->getMessage(),
-        'afip_code' => $e->getAfipCode(),
-    ]);
-} catch (AfipAuthorizationException $e) {
-    // Error de autorización
-    logger()->error('Error de autorización AFIP', [
-        'message' => $e->getMessage(),
-        'afip_code' => $e->getAfipCode(),
-    ]);
-} catch (AfipException $e) {
-    // Otro error de AFIP
-    logger()->error('Error AFIP', ['message' => $e->getMessage()]);
+/**
+ * Autoriza una venta con AFIP y obtiene el CAE
+ *
+ * @param SaleHeader $sale
+ * @return array
+ * @throws \Exception
+ */
+public function authorizeWithAfip(SaleHeader $sale): array
+{
+    try {
+        // Cargar relaciones necesarias
+        $sale->load([
+            'receiptType',
+            'customer.person',
+            'items.product.iva',
+            'saleIvas.iva',
+            'branch'
+        ]);
+
+        // Validar que la venta sea facturable (no presupuesto)
+        if ($sale->receiptType && $sale->receiptType->afip_code === '016') {
+            throw new \Exception('Los presupuestos no se pueden autorizar con AFIP');
+        }
+
+        // Validar que tenga cliente
+        if (!$sale->customer || !$sale->customer->person) {
+            throw new \Exception('La venta debe tener un cliente asociado');
+        }
+
+        // Preparar datos para AFIP
+        $invoiceData = $this->prepareInvoiceDataForAfip($sale);
+
+        // Autorizar con AFIP (el SDK maneja todo automáticamente)
+        $result = Afip::authorizeInvoice($invoiceData);
+
+        // Actualizar la venta con el CAE
+        DB::transaction(function () use ($sale, $result) {
+            $sale->update([
+                'cae' => $result->cae,
+                'cae_expiration_date' => Carbon::createFromFormat('Ymd', $result->caeExpirationDate),
+                'receipt_number' => str_pad($result->invoiceNumber, 8, '0', STR_PAD_LEFT),
+            ]);
+        });
+
+        Log::info('Venta autorizada con AFIP', [
+            'sale_id' => $sale->id,
+            'cae' => $result->cae,
+            'invoice_number' => $result->invoiceNumber,
+        ]);
+
+        // Retornar array
+        return $result->toArray();
+
+    } catch (AfipException $e) {
+        Log::error('Error de AFIP al autorizar venta', [
+            'sale_id' => $sale->id,
+            'error' => $e->getMessage(),
+            'afip_code' => $e->getAfipCode(),
+        ]);
+        throw new \Exception("Error al autorizar con AFIP: {$e->getMessage()}", 0, $e);
+    } catch (\Exception $e) {
+        Log::error('Error inesperado al autorizar venta con AFIP', [
+            'sale_id' => $sale->id,
+            'error' => $e->getMessage(),
+        ]);
+        throw $e;
+    }
+}
+
+/**
+ * Prepara los datos de la venta en formato requerido por AFIP
+ */
+private function prepareInvoiceDataForAfip(SaleHeader $sale): array
+{
+    $customer = $sale->customer->person;
+    $receiptType = $sale->receiptType;
+    $branch = $sale->branch;
+
+    // Mapear tipo de comprobante AFIP
+    $invoiceType = $this->mapReceiptTypeToAfipType($receiptType);
+
+    // Mapear tipo de documento del cliente
+    $customerDocumentType = $this->mapDocumentTypeToAfipType($sale->saleDocumentType);
+
+    // Preparar items
+    $items = [];
+    foreach ($sale->items as $item) {
+        $items[] = [
+            'code' => $item->product->code ?? null,
+            'description' => $item->product->description ?? 'Producto sin descripción',
+            'quantity' => (float) $item->quantity,
+            'unitPrice' => (float) $item->unit_price,
+            'taxRate' => (float) $item->iva_rate,
+        ];
+    }
+
+    // Preparar IVA por tasa
+    $ivaItems = [];
+    foreach ($sale->saleIvas as $saleIva) {
+        $ivaItems[] = [
+            'id' => $this->mapIvaRateToAfipId((float) $saleIva->iva->rate),
+            'baseAmount' => (float) $saleIva->base_amount,
+            'amount' => (float) $saleIva->iva_amount,
+        ];
+    }
+
+    // Obtener punto de venta
+    $pointOfSale = $branch->point_of_sale 
+        ? (int) $branch->point_of_sale 
+        : config('afip.default_point_of_sale', 1);
+
+    return [
+        'pointOfSale' => $pointOfSale,
+        'invoiceType' => $invoiceType,
+        'invoiceNumber' => (int) $sale->receipt_number, // Se ajustará automáticamente si es necesario
+        'date' => $sale->date->format('Ymd'),
+        'customerCuit' => $customer->cuit ?? '',
+        'customerDocumentType' => $customerDocumentType,
+        'customerDocumentNumber' => $customer->cuit ?? $sale->sale_document_number ?? '',
+        'concept' => 1, // 1 = Productos, ajustar según tu lógica
+        'items' => $items,
+        'netAmount' => (float) $sale->subtotal,
+        'ivaTotal' => (float) $sale->total_iva_amount,
+        'total' => (float) $sale->total,
+        'ivaItems' => $ivaItems,
+        'nonTaxedTotal' => 0.0,
+        'exemptAmount' => 0.0,
+        'tributesTotal' => (float) (($sale->iibb ?? 0) + ($sale->internal_tax ?? 0)),
+        'serviceStartDate' => $sale->service_from_date ? $sale->service_from_date->format('Ymd') : null,
+        'serviceEndDate' => $sale->service_to_date ? $sale->service_to_date->format('Ymd') : null,
+        'paymentDueDate' => $sale->service_due_date ? $sale->service_due_date->format('Ymd') : null,
+    ];
+}
+
+/**
+ * Mapea el tipo de comprobante del sistema al código AFIP
+ */
+private function mapReceiptTypeToAfipType($receiptType): int
+{
+    if (!$receiptType || !$receiptType->afip_code) {
+        return 1; // Factura A por defecto
+    }
+
+    $mapping = [
+        '001' => 1,  // Factura A
+        '006' => 6,  // Factura B
+        '011' => 11, // Factura C
+        '012' => 12, // Nota de Débito A
+        '013' => 13, // Nota de Débito B
+        '008' => 8,  // Nota de Crédito A
+        '003' => 3,  // Nota de Crédito B
+    ];
+
+    return $mapping[$receiptType->afip_code] ?? 1;
+}
+
+/**
+ * Mapea el tipo de documento del cliente al código AFIP
+ */
+private function mapDocumentTypeToAfipType($documentType): int
+{
+    if (!$documentType) {
+        return 99; // Consumidor Final
+    }
+
+    $mapping = [
+        'CUIT' => 80,
+        'CUIL' => 86,
+        'CDI' => 87,
+        'LE' => 89,
+        'LC' => 90,
+        'DNI' => 96,
+        'Consumidor Final' => 99,
+    ];
+
+    $name = strtoupper($documentType->name ?? '');
+    return $mapping[$name] ?? 99;
+}
+
+/**
+ * Mapea la tasa de IVA al ID de AFIP
+ */
+private function mapIvaRateToAfipId(float $rate): int
+{
+    $mapping = [
+        0.0 => 3,   // 0% (Exento)
+        10.5 => 4,  // 10.5%
+        21.0 => 5,  // 21%
+        27.0 => 6,  // 27%
+    ];
+
+    return $mapping[$rate] ?? 5; // 21% por defecto
 }
 ```
 
-## Testing
+### Paso 2: Usar en Controlador
+
+```php
+use App\Services\SaleService;
+use App\Models\SaleHeader;
+
+class SaleController extends Controller
+{
+    public function __construct(
+        private SaleService $saleService
+    ) {}
+
+    /**
+     * Crear venta y autorizar con AFIP
+     */
+    public function store(Request $request)
+    {
+        try {
+            // Crear la venta
+            $sale = $this->saleService->createSale($request->all());
+
+            // Autorizar con AFIP (solo si no es presupuesto)
+            if ($sale->receiptType && $sale->receiptType->afip_code !== '016') {
+                $this->saleService->authorizeWithAfip($sale);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $sale->fresh(),
+                'message' => 'Venta creada y autorizada con AFIP exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Autorizar una venta existente con AFIP
+     */
+    public function authorizeWithAfip(int $id)
+    {
+        try {
+            $sale = SaleHeader::findOrFail($id);
+
+            if ($sale->cae) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'La venta ya está autorizada con CAE: ' . $sale->cae
+                ], 400);
+            }
+
+            $result = $this->saleService->authorizeWithAfip($sale);
+
+            return response()->json([
+                'success' => true,
+                'data' => $result,
+                'message' => 'Venta autorizada con AFIP exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+}
+```
+
+### Paso 3: Agregar Ruta (Opcional)
+
+```php
+// routes/api.php
+Route::post('/sales/{id}/authorize-afip', [SaleController::class, 'authorizeWithAfip'])
+    ->middleware('auth:sanctum');
+```
+
+---
+
+## 🔍 Características del SDK
+
+### ✅ Automático
+
+El SDK maneja automáticamente:
+
+- **Autenticación con WSAA**: Obtiene token y firma (válidos 12 horas)
+- **Cache de tokens**: Evita llamadas innecesarias a AFIP
+- **Correlatividad**: Consulta último comprobante antes de autorizar
+- **Ajuste de números**: Ajusta automáticamente si el número ya existe
+- **Retry automático**: Reintenta en errores de conexión (hasta 3 intentos)
+- **Validación de datos**: Valida antes de enviar a AFIP
+- **Mapeo de datos**: Convierte tus datos al formato AFIP
+
+### 📊 Respuesta del SDK
+
+El SDK siempre retorna un objeto `InvoiceResponse` (DTO):
+
+```php
+InvoiceResponse {
+    cae: "71000001234567"           // Código de Autorización Electrónico
+    caeExpirationDate: "20240201"   // Fecha de vencimiento (formato Ymd)
+    invoiceNumber: 106               // Número de comprobante autorizado
+    pointOfSale: 1                   // Punto de venta
+    invoiceType: 1                   // Tipo de comprobante
+    observations: []                 // Observaciones de AFIP (si las hay)
+}
+```
+
+**Acceso:**
+```php
+$result->cae                    // string
+$result->caeExpirationDate      // string (Ymd)
+$result->invoiceNumber          // int
+$result->isCaeValid()           // bool - Verifica si está vigente
+$result->toArray()              // array - Convierte a array
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Error: "CUIT no configurado"
+
+**Solución:**
+```bash
+# Verificar .env
+cat .env | grep AFIP_CUIT
+
+# Limpiar cache
+php artisan config:clear
+```
+
+### Error: "Error al cargar clave privada"
+
+**Causas posibles:**
+1. Archivo no existe o ruta incorrecta
+2. Permisos incorrectos
+3. Contraseña incorrecta
+
+**Solución:**
+```bash
+# Verificar que el archivo existe
+ls -la storage/certificates/clave_privada.key
+
+# Verificar permisos (debe ser 600)
+chmod 600 storage/certificates/clave_privada.key
+
+# Verificar contraseña en .env
+AFIP_CERTIFICATE_PASSWORD=tu_password_correcto
+```
+
+### Error: "Error SOAP al llamar"
+
+**Causas posibles:**
+1. Problema de conexión a internet
+2. Servicios de AFIP caídos
+3. Certificado inválido o expirado
+
+**Solución:**
+- Verificar conexión a internet
+- Verificar que los certificados no hayan expirado
+- Revisar logs: `storage/logs/laravel.log`
+
+### Error: "Código AFIP: 10015" (Comprobante ya existe)
+
+**Causa:** Intentaste autorizar un número que ya fue autorizado.
+
+**Solución:** El SDK automáticamente ajusta el número. Si persiste, verifica manualmente:
+
+```php
+$lastInvoice = Afip::getLastAuthorizedInvoice(1, 1);
+echo "Último autorizado: " . $lastInvoice['CbteNro'];
+```
+
+### Ver Logs
 
 ```bash
-# Ejecutar tests
-composer test
+# Ver logs de Laravel
+tail -f storage/logs/laravel.log
 
-# Con coverage
-composer test -- --coverage
+# Buscar errores de AFIP
+grep -i "afip" storage/logs/laravel.log
 ```
 
-## Entornos
-
-### Testing (Homologación)
-
-- URL WSAA: `https://wsaahomo.afip.gov.ar/ws/services/LoginCms`
-- URL WSFE: `https://wswhomo.afip.gov.ar/wsfev1/service.asmx?WSDL`
-
-### Producción
-
-- URL WSAA: `https://wsaa.afip.gov.ar/ws/services/LoginCms`
-- URL WSFE: `https://servicios1.afip.gov.ar/wsfev1/service.asmx?WSDL`
-
-## Seguridad
-
-⚠️ **IMPORTANTE**: Nunca subas tus certificados digitales al repositorio. Asegúrate de que estén en `.gitignore` y se manejen de forma segura.
-
-## Contribuir
-
-Las contribuciones son bienvenidas. Por favor:
-
-1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
+---
 
 ## 📚 Documentación Adicional
 
-- [Guía de Pruebas](GUIA_PRUEBAS.md) - Cómo probar el SDK
-- [Mejores Prácticas](MEJORES_PRACTICAS.md) - Prácticas implementadas
-- [Implementación Completa](IMPLEMENTACION_COMPLETA.md) - Detalles técnicos
-- [Contribuir](CONTRIBUTING.md) - Guía para contribuir
-- [Política de Seguridad](SECURITY.md) - Reportar vulnerabilidades
+### Guías Detalladas
 
-## 🤝 Contribuir
+- **[Integración en Sistema POS](INTEGRACION_POS.md)** 🎯 - Guía específica para sistemas POS
+- **[Explicación de Funciones del SDK](EXPLICACION_FUNCIONES_SDK.md)** 🔍 - Qué hace cada función internamente
+- **[Guía de Uso Completa](GUIA_USO_LARAVEL.md)** ⭐ - Instalación y uso detallado
+- **[Instalación Rápida](INSTALACION_RAPIDA.md)** ⚡ - Setup en 5 minutos
+- **[Checklist Pre-Producción](CHECKLIST_PRE_PRODUCCION.md)** ✅ - Qué necesitas antes de probar
+- **[Configurar Certificados](CONFIGURAR_CERTIFICADOS.md)** 🔐 - Guía completa de certificados
+- **[Guía de Pruebas](GUIA_PRUEBAS.md)** 🧪 - Ejemplos y scripts de prueba
 
-Las contribuciones son bienvenidas! Por favor lee [CONTRIBUTING.md](CONTRIBUTING.md) para detalles sobre nuestro código de conducta y el proceso para enviar pull requests.
+### Referencias Técnicas
+
+- [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
+- [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
+
+---
+
+## ❓ Preguntas Frecuentes
+
+**P: ¿Puedo autorizar presupuestos?**
+R: No, los presupuestos (código 016) no se autorizan con AFIP.
+
+**P: ¿Qué pasa si el número de comprobante ya existe?**
+R: El SDK automáticamente consulta el último autorizado y ajusta al siguiente número disponible.
+
+**P: ¿Necesito manejar tokens manualmente?**
+R: No, el SDK cachea tokens automáticamente por 12 horas.
+
+**P: ¿Puedo usar el SDK en múltiples proyectos?**
+R: Sí, instálalo en cada proyecto siguiendo los pasos de instalación.
+
+**P: ¿Cómo sé si la autorización fue exitosa?**
+R: Si el método no lanza excepción y retorna un `InvoiceResponse`, fue exitosa. Verifica el campo `cae` en tu venta.
+
+**P: ¿Qué hacer si falla la autorización?**
+R: Revisa los logs (`storage/logs/laravel.log`) y el mensaje de error. Los errores de AFIP incluyen códigos específicos.
+
+---
+
+## 🔒 Seguridad
+
+⚠️ **IMPORTANTE:**
+
+- **NUNCA** subas certificados digitales al repositorio Git
+- Asegúrate de que estén en `.gitignore`
+- Usa permisos restrictivos (600 para `.key`, 644 para `.crt`)
+- No compartas certificados por email o mensajería
+- Rota certificados periódicamente según políticas de seguridad
+
+---
 
 ## 📝 Changelog
 
 Ver [CHANGELOG.md](CHANGELOG.md) para una lista de cambios.
 
-## 🔒 Seguridad
+## 🤝 Contribuir
 
-Si descubres una vulnerabilidad de seguridad, por favor envía un email a security@resguar.com en lugar de usar el issue tracker. Ver [SECURITY.md](SECURITY.md) para más detalles.
+Las contribuciones son bienvenidas! Por favor lee [CONTRIBUTING.md](CONTRIBUTING.md) para detalles.
 
 ## 📄 Licencia
 
@@ -473,12 +728,12 @@ Este proyecto está licenciado bajo la [MIT License](LICENSE).
 - Comunidad de desarrolladores de Argentina
 - Todos los contribuidores
 
-## Soporte
+## 💬 Soporte
 
-Para soporte, por favor abre un issue en el repositorio o contacta a [info@resguar.com](mailto:info@resguar.com).
+Para soporte, por favor:
+- Abre un issue en el [repositorio](https://github.com/resguarit/Afip-sdk/issues)
+- Contacta a [info@resguar.com](mailto:info@resguar.com)
 
-## Documentación Adicional
+---
 
-- [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/documentos/manual_desarrollador_COMPG_v2_10.pdf)
-- [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/manual_desarrollador_COMPG_v2_10.pdf)
-
+**¿Necesitas ayuda?** Revisa la sección [Troubleshooting](#-troubleshooting) o consulta las [Guías Detalladas](#-documentación-adicional).
