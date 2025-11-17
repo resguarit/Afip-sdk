@@ -25,13 +25,12 @@
 
 ### ¿Qué Consulta el SDK?
 
-El SDK consulta **WSFE** (Web Service de AFIP), no el portal ARCA. Ambos son parte de AFIP, pero tienen funciones diferentes:
-- **ARCA**: Portal web para gestión administrativa
-- **WSFE**: Web Service para facturación electrónica
-
-### ¿Qué Consulta el SDK?
-
 El SDK consulta el **Web Service WSFE de AFIP** usando el método `FECompUltimoAutorizado`:
+
+**Importante:**
+- ❌ **ARCA NO tiene un Web Service** para consultar facturas
+- ✅ **WSFE es el Web Service correcto** para facturación electrónica
+- ✅ El método `FECompUltimoAutorizado` es parte de **WSFE**, no de ARCA
 
 ```php
 // El SDK hace esto automáticamente:
@@ -225,6 +224,9 @@ R: No, ARCA es el portal web administrativo de AFIP (para gestionar certificados
 
 **P: ¿ARCA y AFIP son lo mismo?**
 R: ARCA es parte de AFIP. ARCA es el portal web administrativo, mientras que WSFE es el Web Service de facturación. Ambos son sistemas de AFIP pero con funciones diferentes.
+
+**P: ¿No debería usar un Web Service de ARCA para ver la última factura?**
+R: No, ARCA **no tiene un Web Service** para consultar facturas. ARCA es solo un portal web administrativo. El Web Service correcto es **WSFE** (Web Service de Facturación Electrónica), que es parte de AFIP y tiene el método `FECompUltimoAutorizado` para consultar el último comprobante autorizado. El SDK usa WSFE correctamente.
 
 ---
 
