@@ -94,5 +94,38 @@ class ValidatorHelper
 
         return substr($cuit, 0, 2) . '-' . substr($cuit, 2, 8) . '-' . substr($cuit, 10, 1);
     }
+
+    /**
+     * Limpia un CUIT removiendo guiones, espacios y caracteres no numéricos
+     *
+     * @param string $cuit CUIT a limpiar
+     * @return string CUIT limpio (solo dígitos)
+     */
+    public static function cleanCuit(string $cuit): string
+    {
+        return preg_replace('/[^0-9]/', '', $cuit);
+    }
+
+    /**
+     * Valida y limpia un CUIT
+     *
+     * @param string $cuit CUIT a validar y limpiar
+     * @return string CUIT limpio y validado
+     * @throws \InvalidArgumentException Si el CUIT no es válido
+     */
+    public static function validateAndCleanCuit(string $cuit): string
+    {
+        $cleaned = self::cleanCuit($cuit);
+
+        if (strlen($cleaned) !== 11) {
+            throw new \InvalidArgumentException("El CUIT debe tener 11 dígitos. Recibido: {$cuit}");
+        }
+
+        if (!self::validateCuit($cleaned)) {
+            throw new \InvalidArgumentException("CUIT inválido: {$cuit}");
+        }
+
+        return $cleaned;
+    }
 }
 

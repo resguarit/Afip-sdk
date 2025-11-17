@@ -10,6 +10,7 @@ use Resguar\AfipSdk\Exceptions\AfipAuthorizationException;
 use Resguar\AfipSdk\Exceptions\AfipException;
 use Resguar\AfipSdk\Helpers\InvoiceMapper;
 use Resguar\AfipSdk\Helpers\SoapHelper;
+use Resguar\AfipSdk\Helpers\ValidatorHelper;
 use SoapClient;
 use SoapFault;
 
@@ -40,33 +41,32 @@ class WsfeService
      * Autoriza una factura electrónica y obtiene el CAE
      *
      * @param array $invoice Datos del comprobante
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return InvoiceResponse Resultado con CAE y datos de la factura autorizada
      * @throws AfipAuthorizationException
      */
-    public function authorizeInvoice(array $invoice): InvoiceResponse
+    public function authorizeInvoice(array $invoice, ?string $cuit = null): InvoiceResponse
     {
+        // Resolver y validar CUIT
+        $cuit = $this->resolveCuit($cuit);
+
         $this->log('info', 'Iniciando autorización de comprobante', [
             'point_of_sale' => $invoice['pointOfSale'] ?? null,
             'invoice_type' => $invoice['invoiceType'] ?? null,
+            'cuit' => $cuit,
         ]);
 
         try {
-            // 1. Obtener token y firma de WSAA (Fase 1 completada)
-            $this->log('debug', 'Obteniendo token y firma de WSAA');
-            $auth = $this->wsaaService->getTokenAndSignature('wsfe');
-
-            // 2. Obtener CUIT de configuración
-            $cuit = config('afip.cuit');
-            if (empty($cuit)) {
-                throw new AfipAuthorizationException('CUIT no configurado en config/afip.php');
-            }
+            // 1. Obtener token y firma de WSAA (con CUIT específico)
+            $this->log('debug', 'Obteniendo token y firma de WSAA', ['cuit' => $cuit]);
+            $auth = $this->wsaaService->getTokenAndSignature('wsfe', $cuit);
 
             // 3. PRÁCTICA CLAVE: Consultar último comprobante autorizado para asegurar correlatividad
             $pointOfSale = (int) ($invoice['pointOfSale'] ?? 0);
             $invoiceType = (int) ($invoice['invoiceType'] ?? 0);
             
-            $this->log('debug', "Consultando último comprobante autorizado (PtoVta: {$pointOfSale}, Tipo: {$invoiceType})");
-            $lastInvoice = $this->getLastAuthorizedInvoice($pointOfSale, $invoiceType);
+            $this->log('debug', "Consultando último comprobante autorizado (PtoVta: {$pointOfSale}, Tipo: {$invoiceType}, CUIT: {$cuit})");
+            $lastInvoice = $this->getLastAuthorizedInvoice($pointOfSale, $invoiceType, $cuit);
             
             // Validar y ajustar número de comprobante
             $lastNumber = (int) ($lastInvoice['CbteNro'] ?? 0);
@@ -115,6 +115,7 @@ class WsfeService
             $this->log('info', 'Comprobante autorizado exitosamente', [
                 'cae' => $invoiceResponse->cae,
                 'invoice_number' => $invoiceResponse->invoiceNumber,
+                'cuit' => $cuit,
             ]);
 
             return $invoiceResponse;
@@ -148,26 +149,25 @@ class WsfeService
      *
      * @param int $pointOfSale Punto de venta
      * @param int $invoiceType Tipo de comprobante
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return array Datos del último comprobante con estructura:
      *               ['CbteNro' => int, 'CbteFch' => string, 'PtoVta' => int, 'CbteTipo' => int]
      * @throws AfipException
      */
-    public function getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType): array
+    public function getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType, ?string $cuit = null): array
     {
+        // Resolver y validar CUIT
+        $cuit = $this->resolveCuit($cuit);
+
         $this->log('info', "Consultando último comprobante autorizado", [
             'point_of_sale' => $pointOfSale,
             'invoice_type' => $invoiceType,
+            'cuit' => $cuit,
         ]);
 
         try {
-            // 1. Obtener token y firma de WSAA
-            $auth = $this->wsaaService->getTokenAndSignature('wsfe');
-
-            // 2. Obtener CUIT de configuración
-            $cuit = config('afip.cuit');
-            if (empty($cuit)) {
-                throw new AfipException('CUIT no configurado en config/afip.php');
-            }
+            // 1. Obtener token y firma de WSAA (con CUIT específico)
+            $auth = $this->wsaaService->getTokenAndSignature('wsfe', $cuit);
 
             // 3. Crear cliente SOAP para WSFE
             $client = SoapHelper::createClient($this->url);
@@ -184,7 +184,7 @@ class WsfeService
             ];
 
             // 5. Llamar método FECompUltimoAutorizado
-            $this->log('debug', 'Enviando solicitud FECompUltimoAutorizado a WSFE');
+            $this->log('debug', 'Enviando solicitud FECompUltimoAutorizado a WSFE', ['cuit' => $cuit]);
             $soapResponse = SoapHelper::call(
                 $client,
                 'FECompUltimoAutorizado',
@@ -199,6 +199,7 @@ class WsfeService
                 'message' => $e->getMessage(),
                 'faultcode' => $e->faultcode ?? null,
                 'faultstring' => $e->faultstring ?? null,
+                'cuit' => $cuit,
             ]);
 
             throw new AfipException(
@@ -212,6 +213,7 @@ class WsfeService
             $this->log('error', 'Error inesperado al consultar último comprobante', [
                 'message' => $e->getMessage(),
                 'exception' => $e,
+                'cuit' => $cuit,
             ]);
 
             throw new AfipException(
@@ -220,6 +222,34 @@ class WsfeService
                 $e
             );
         }
+    }
+
+    /**
+     * Resuelve el CUIT: limpia, valida y usa config si no se proporciona
+     *
+     * @param string|null $cuit CUIT proporcionado (opcional)
+     * @return string CUIT limpio y validado
+     * @throws AfipException Si el CUIT no es válido o no está configurado
+     */
+    protected function resolveCuit(?string $cuit = null): string
+    {
+        // Si no se proporciona CUIT, usar el de configuración
+        if ($cuit === null || $cuit === '') {
+            $cuit = config('afip.cuit');
+            if (empty($cuit)) {
+                throw new AfipException('CUIT no configurado en config/afip.php y no se proporcionó como parámetro');
+            }
+        }
+
+        // Limpiar CUIT (remover guiones, espacios, etc.)
+        $cleaned = ValidatorHelper::cleanCuit($cuit);
+
+        // Validar que tenga 11 dígitos
+        if (strlen($cleaned) !== 11) {
+            throw new AfipException("El CUIT debe tener 11 dígitos. Recibido: {$cuit} (limpio: {$cleaned})");
+        }
+
+        return $cleaned;
     }
 
     /**

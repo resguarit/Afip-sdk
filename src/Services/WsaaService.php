@@ -11,6 +11,7 @@ use Resguar\AfipSdk\Exceptions\AfipAuthenticationException;
 use Resguar\AfipSdk\Helpers\CmsHelper;
 use Resguar\AfipSdk\Helpers\SoapHelper;
 use Resguar\AfipSdk\Helpers\TraGenerator;
+use Resguar\AfipSdk\Helpers\ValidatorHelper;
 use SoapClient;
 use SoapFault;
 
@@ -41,31 +42,29 @@ class WsaaService
      * Obtiene un token de autenticación para un servicio específico
      *
      * @param string $service Nombre del servicio (wsfe, wsmtxca, etc.)
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return TokenResponse Token y firma de autenticación
      * @throws AfipAuthenticationException
      */
-    public function getToken(string $service): TokenResponse
+    public function getToken(string $service, ?string $cuit = null): TokenResponse
     {
-        $cacheKey = $this->getCacheKey($service);
+        // Obtener y validar CUIT
+        $cuit = $this->resolveCuit($cuit);
+        $cacheKey = $this->getCacheKey($service, $cuit);
 
         // Intentar obtener del cache si está habilitado
         if ($this->cache !== null && config('afip.cache.enabled', true)) {
             $cached = $this->cache->get($cacheKey);
 
             if ($cached instanceof TokenResponse && $cached->isValid()) {
-                $this->log('info', "Token obtenido del cache para servicio: {$service}");
+                $this->log('info', "Token obtenido del cache para servicio: {$service}, CUIT: {$cuit}");
                 return $cached;
             }
         }
 
-        $this->log('info', "Generando nuevo token para servicio: {$service}");
+        $this->log('info', "Generando nuevo token para servicio: {$service}, CUIT: {$cuit}");
 
         try {
-            // 1. Obtener CUIT de configuración
-            $cuit = config('afip.cuit');
-            if (empty($cuit)) {
-                throw new AfipAuthenticationException('CUIT no configurado en config/afip.php');
-            }
 
             // 2. Generar TRA (Ticket de Requerimiento de Acceso)
             $this->log('debug', 'Generando TRA XML');
@@ -93,11 +92,11 @@ class WsaaService
 
             // 6. Guardar en cache si está habilitado
             if ($this->cache !== null && config('afip.cache.enabled', true)) {
-                $ttl = config('afip.cache.ttl', 86400);
+                $ttl = config('afip.cache.ttl', 43200); // 12 horas
                 // Reducir TTL un poco para evitar usar tokens casi expirados
                 $cacheTtl = min($ttl, $tokenResponse->getSecondsUntilExpiration() - 300);
                 $this->cache->put($cacheKey, $tokenResponse, $cacheTtl);
-                $this->log('info', "Token guardado en cache para servicio: {$service}");
+                $this->log('info', "Token guardado en cache para servicio: {$service}, CUIT: {$cuit}");
             }
 
             return $tokenResponse;
@@ -118,12 +117,13 @@ class WsaaService
      * Obtiene la firma digital para el token
      *
      * @param string $service Nombre del servicio
+     * @param string|null $cuit CUIT del contribuyente (opcional)
      * @return string Firma digital
      * @throws AfipAuthenticationException
      */
-    public function getSignature(string $service): string
+    public function getSignature(string $service, ?string $cuit = null): string
     {
-        $tokenResponse = $this->getToken($service);
+        $tokenResponse = $this->getToken($service, $cuit);
         return $tokenResponse->signature;
     }
 
@@ -131,12 +131,13 @@ class WsaaService
      * Obtiene el token y la firma como array
      *
      * @param string $service Nombre del servicio
+     * @param string|null $cuit CUIT del contribuyente (opcional)
      * @return array{token: string, signature: string}
      * @throws AfipAuthenticationException
      */
-    public function getTokenAndSignature(string $service): array
+    public function getTokenAndSignature(string $service, ?string $cuit = null): array
     {
-        $tokenResponse = $this->getToken($service);
+        $tokenResponse = $this->getToken($service, $cuit);
 
         return [
             'token' => $tokenResponse->token,
@@ -148,15 +149,17 @@ class WsaaService
      * Verifica si hay un token válido en cache
      *
      * @param string $service Nombre del servicio
+     * @param string|null $cuit CUIT del contribuyente (opcional)
      * @return bool
      */
-    public function hasValidToken(string $service): bool
+    public function hasValidToken(string $service, ?string $cuit = null): bool
     {
         if ($this->cache === null || !config('afip.cache.enabled', true)) {
             return false;
         }
 
-        $cacheKey = $this->getCacheKey($service);
+        $cuit = $this->resolveCuit($cuit);
+        $cacheKey = $this->getCacheKey($service, $cuit);
         $cached = $this->cache->get($cacheKey);
 
         return $cached instanceof TokenResponse && $cached->isValid();
@@ -166,51 +169,86 @@ class WsaaService
      * Verifica si el servicio está autenticado
      *
      * @param string $service Nombre del servicio
+     * @param string|null $cuit CUIT del contribuyente (opcional)
      * @return bool
      */
-    public function isAuthenticated(string $service = 'wsfe'): bool
+    public function isAuthenticated(string $service = 'wsfe', ?string $cuit = null): bool
     {
-        return $this->hasValidToken($service);
+        return $this->hasValidToken($service, $cuit);
     }
 
     /**
      * Limpia el cache de tokens
      *
      * @param string|null $service Nombre del servicio (null para limpiar todos)
+     * @param string|null $cuit CUIT del contribuyente (opcional, null para limpiar todos los CUITs)
      * @return void
      */
-    public function clearTokenCache(?string $service = null): void
+    public function clearTokenCache(?string $service = null, ?string $cuit = null): void
     {
         if ($this->cache === null) {
             return;
         }
 
-        if ($service !== null) {
-            $cacheKey = $this->getCacheKey($service);
+        if ($service !== null && $cuit !== null) {
+            $cuit = $this->resolveCuit($cuit);
+            $cacheKey = $this->getCacheKey($service, $cuit);
             $this->cache->forget($cacheKey);
-            $this->log('info', "Cache limpiado para servicio: {$service}");
+            $this->log('info', "Cache limpiado para servicio: {$service}, CUIT: {$cuit}");
         } else {
-            // Limpiar todos los tokens (requiere conocer los servicios)
+            // Limpiar todos los tokens (requiere conocer los servicios y CUITs)
+            // Nota: Esto es una aproximación, ya que no conocemos todos los CUITs posibles
             $services = ['wsfe', 'wsmtxca', 'wsfev1'];
+            $cuits = $cuit !== null ? [$this->resolveCuit($cuit)] : [config('afip.cuit', 'default')];
+            
             foreach ($services as $svc) {
-                $this->cache->forget($this->getCacheKey($svc));
+                foreach ($cuits as $c) {
+                    $this->cache->forget($this->getCacheKey($svc, $c));
+                }
             }
             $this->log('info', 'Cache limpiado para todos los servicios');
         }
     }
 
     /**
-     * Obtiene la clave de cache para un servicio
+     * Obtiene la clave de cache para un servicio y CUIT
      *
-     * @param string $service
+     * @param string $service Nombre del servicio
+     * @param string $cuit CUIT del contribuyente
      * @return string
      */
-    protected function getCacheKey(string $service): string
+    protected function getCacheKey(string $service, string $cuit): string
     {
         $prefix = config('afip.cache.prefix', 'afip_token_');
-        $cuit = config('afip.cuit', 'default');
+        return "{$prefix}{$service}_{$cuit}_{$this->environment}";
+    }
 
-        return "{$prefix}{$cuit}_{$service}_{$this->environment}";
+    /**
+     * Resuelve el CUIT: limpia, valida y usa config si no se proporciona
+     *
+     * @param string|null $cuit CUIT proporcionado (opcional)
+     * @return string CUIT limpio y validado
+     * @throws AfipAuthenticationException Si el CUIT no es válido o no está configurado
+     */
+    protected function resolveCuit(?string $cuit = null): string
+    {
+        // Si no se proporciona CUIT, usar el de configuración
+        if ($cuit === null || $cuit === '') {
+            $cuit = config('afip.cuit');
+            if (empty($cuit)) {
+                throw new AfipAuthenticationException('CUIT no configurado en config/afip.php y no se proporcionó como parámetro');
+            }
+        }
+
+        // Limpiar CUIT (remover guiones, espacios, etc.)
+        $cleaned = ValidatorHelper::cleanCuit($cuit);
+
+        // Validar que tenga 11 dígitos
+        if (strlen($cleaned) !== 11) {
+            throw new AfipAuthenticationException("El CUIT debe tener 11 dígitos. Recibido: {$cuit} (limpio: {$cleaned})");
+        }
+
+        return $cleaned;
     }
 
     /**

@@ -10,12 +10,12 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
 /**
  * Facade para el servicio de AFIP
  *
- * @method static \Resguar\AfipSdk\DTOs\InvoiceResponse authorizeInvoice(mixed $source)
- * @method static array getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType)
+ * @method static \Resguar\AfipSdk\DTOs\InvoiceResponse authorizeInvoice(mixed $source, ?string $cuit = null)
+ * @method static array getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType, ?string $cuit = null)
  * @method static array getInvoiceTypes()
  * @method static array getPointOfSales()
  * @method static array getTaxpayerStatus(string $cuit)
- * @method static bool isAuthenticated()
+ * @method static bool isAuthenticated(?string $cuit = null)
  *
  * @see \Resguar\AfipSdk\Services\AfipService
  */

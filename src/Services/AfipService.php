@@ -35,10 +35,11 @@ class AfipService implements AfipServiceInterface
      * Autoriza una factura electrónica y obtiene el CAE
      *
      * @param mixed $source Fuente de datos (Eloquent Model, array, objeto)
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return InvoiceResponse Resultado con CAE y datos de la factura autorizada
      * @throws AfipException
      */
-    public function authorizeInvoice(mixed $source): InvoiceResponse
+    public function authorizeInvoice(mixed $source, ?string $cuit = null): InvoiceResponse
     {
         // Construir el comprobante desde la fuente de datos
         $invoice = InvoiceBuilder::from($source)->build();
@@ -46,8 +47,8 @@ class AfipService implements AfipServiceInterface
         // Validar datos del comprobante
         ValidatorHelper::validateInvoice($invoice);
 
-        // Autorizar mediante WsfeService
-        return $this->wsfeService->authorizeInvoice($invoice);
+        // Autorizar mediante WsfeService (con CUIT opcional)
+        return $this->wsfeService->authorizeInvoice($invoice, $cuit);
     }
 
     /**
@@ -55,12 +56,13 @@ class AfipService implements AfipServiceInterface
      *
      * @param int $pointOfSale Punto de venta
      * @param int $invoiceType Tipo de comprobante
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return array Datos del último comprobante
      * @throws AfipException
      */
-    public function getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType): array
+    public function getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType, ?string $cuit = null): array
     {
-        return $this->wsfeService->getLastAuthorizedInvoice($pointOfSale, $invoiceType);
+        return $this->wsfeService->getLastAuthorizedInvoice($pointOfSale, $invoiceType, $cuit);
     }
 
     /**
@@ -100,11 +102,12 @@ class AfipService implements AfipServiceInterface
     /**
      * Verifica si el servicio está autenticado
      *
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return bool
      */
-    public function isAuthenticated(): bool
+    public function isAuthenticated(?string $cuit = null): bool
     {
-        return $this->wsaaService->isAuthenticated('wsfe');
+        return $this->wsaaService->isAuthenticated('wsfe', $cuit);
     }
 }
 
