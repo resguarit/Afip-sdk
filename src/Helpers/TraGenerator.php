@@ -127,8 +127,9 @@ class TraGenerator
     private static function getSourceDn(string $cuit, ?string $certPath = null): string
     {
         // Usar formato estándar simple que AFIP acepta
-        // El formato debe ser: CN=<cuit>,O=AFIP,C=AR,serialNumber=CUIT <cuit>
-        return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
+        // IMPORTANTE: Usar SERIALNUMBER en mayúsculas para consistencia con destination
+        // El formato debe ser: CN=<cuit>,O=AFIP,C=AR,SERIALNUMBER=CUIT <cuit>
+        return 'CN=' . $cuit . ',O=AFIP,C=AR,SERIALNUMBER=CUIT ' . $cuit;
     }
 
     /**
