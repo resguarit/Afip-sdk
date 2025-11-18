@@ -363,8 +363,20 @@ class WsfeService
             ? $soapResponse->FECAESolicitarResult
             : $soapResponse;
 
+        // Log completo de la respuesta para debugging
+        $this->log('debug', 'Respuesta completa de WSFE', [
+            'response_type' => gettype($response),
+            'response_keys' => is_object($response) ? array_keys((array)$response) : null,
+            'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
+        ]);
+
         // Verificar resultado
         if (!isset($response->FeCabResp) || !isset($response->FeDetResp)) {
+            $this->log('error', 'Estructura de respuesta inválida', [
+                'has_FeCabResp' => isset($response->FeCabResp),
+                'has_FeDetResp' => isset($response->FeDetResp),
+                'response_structure' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
+            ]);
             throw new AfipAuthorizationException('Respuesta inválida de WSFE: estructura incorrecta');
         }
 
@@ -373,21 +385,66 @@ class WsfeService
 
         // Verificar resultado de la cabecera
         $resultado = (string) ($feCabResp->Resultado ?? '');
+        
+        $this->log('debug', 'Resultado de la cabecera', [
+            'resultado' => $resultado,
+            'feCabResp_keys' => is_object($feCabResp) ? array_keys((array)$feCabResp) : null,
+            'has_Errors' => isset($feCabResp->Errors),
+        ]);
+        
         if ($resultado !== 'A') {
             // 'A' = Aprobado, otros valores = Rechazado/Error
             $errors = [];
-            if (isset($feCabResp->Errors) && is_array($feCabResp->Errors)) {
-                foreach ($feCabResp->Errors as $error) {
+            
+            // Intentar obtener errores de diferentes formas
+            if (isset($feCabResp->Errors)) {
+                if (is_array($feCabResp->Errors)) {
+                    foreach ($feCabResp->Errors as $error) {
+                        $errors[] = [
+                            'code' => (string) ($error->Code ?? ''),
+                            'msg' => (string) ($error->Msg ?? ''),
+                        ];
+                    }
+                } elseif (is_object($feCabResp->Errors)) {
                     $errors[] = [
-                        'code' => (string) ($error->Code ?? ''),
-                        'msg' => (string) ($error->Msg ?? ''),
+                        'code' => (string) ($feCabResp->Errors->Code ?? ''),
+                        'msg' => (string) ($feCabResp->Errors->Msg ?? ''),
                     ];
+                }
+            }
+            
+            // Si no hay errores en la cabecera, verificar el detalle
+            if (empty($errors)) {
+                $detalle = is_array($feDetResp->FECAEDetResponse) 
+                    ? $feDetResp->FECAEDetResponse[0] 
+                    : $feDetResp->FECAEDetResponse;
+                    
+                if (isset($detalle->Observaciones)) {
+                    if (is_array($detalle->Observaciones)) {
+                        foreach ($detalle->Observaciones as $obs) {
+                            $errors[] = [
+                                'code' => (string) ($obs->Code ?? ''),
+                                'msg' => (string) ($obs->Msg ?? ''),
+                            ];
+                        }
+                    } elseif (is_object($detalle->Observaciones)) {
+                        $errors[] = [
+                            'code' => (string) ($detalle->Observaciones->Code ?? ''),
+                            'msg' => (string) ($detalle->Observaciones->Msg ?? ''),
+                        ];
+                    }
                 }
             }
 
             $errorMsg = !empty($errors)
                 ? implode('; ', array_map(fn($e) => "{$e['code']}: {$e['msg']}", $errors))
-                : 'Error desconocido en la respuesta de WSFE';
+                : "Error desconocido en la respuesta de WSFE (Resultado: {$resultado})";
+
+            $this->log('error', 'Error al autorizar comprobante', [
+                'resultado' => $resultado,
+                'errors' => $errors,
+                'feCabResp' => is_object($feCabResp) ? json_encode($feCabResp, JSON_PARTIAL_OUTPUT_ON_ERROR) : $feCabResp,
+            ]);
 
             throw new AfipAuthorizationException(
                 "Error al autorizar comprobante: {$errorMsg}",
