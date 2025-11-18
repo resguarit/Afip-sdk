@@ -122,9 +122,28 @@
     ```
 
     **⚠️ IMPORTANTE:**
-    - **NUNCA** subas los certificados al repositorio Git
+    - **NUNCA** subas los certificados de usuario (`.key`, `.crt` privados) al repositorio Git
     - Asegúrate de que estén en `.gitignore`
     - Los certificados deben tener los nombres exactos especificados en `.env`
+
+    #### Certificados de la Cadena de Certificación (Producción)
+
+    En la carpeta `documentacion_afip/Cadena_de_certificacion_prod_2024_2035/` encontrarás los certificados raíz e intermedios de AFIP para producción:
+
+    - **`AFIPRootCA2.cacert_2015-2035.crt`** - Certificado raíz de AFIP (válido 2015-2035)
+    - **`Computadores.cacert_2024-2035.crt`** - Certificado intermedio de Computadores (válido 2024-2035)
+
+    **¿Para qué sirven?**
+    
+    Estos certificados se usan para validar la cadena de certificación de AFIP en producción. Son certificados **públicos** de la Autoridad Certificadora (CA) de AFIP y **SÍ pueden** estar en el repositorio (a diferencia de tus certificados privados).
+
+    **¿Cuándo se usan?**
+    
+    - En producción, para validar que los certificados emitidos por AFIP son confiables
+    - Para configurar el cliente SOAP con la cadena de certificación completa
+    - Para evitar errores de validación SSL/TLS al conectarse a los servicios de AFIP
+
+    **Nota:** El SDK actualmente no requiere estos certificados explícitamente, pero pueden ser útiles para configuración avanzada o troubleshooting en producción.
 
     ### Paso 3: Limpiar Cache
 
@@ -805,10 +824,11 @@
     - [ ] Certificado y clave privada coinciden
     - [ ] CUIT configurado correctamente en `.env`
     - [ ] Entorno configurado como `testing` (no `production`)
-    - [ ] Certificado activado en ARCA (ambiente Testing)
+    - [ ] Certificado activado en ARCA (ambiente Testing para pruebas, Producción para producción)
     - [ ] Autorización creada para `wsfe` en ARCA
     - [ ] CUIT del certificado coincide con el configurado
     - [ ] SDK actualizado a la última versión
+    - [ ] (Producción) Certificados de cadena de certificación disponibles si es necesario
 
     ---
 
@@ -817,6 +837,27 @@
 - [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
 - [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
 - [ARCA - Administración de Certificados](https://www.afip.gob.ar/arqa/)
+
+### Documentación Adicional Incluida
+
+En la carpeta `documentacion_afip/` encontrarás:
+
+- **Manuales de Desarrollo:**
+  - `manual-desarrollador-ARCA-COMPG-v4-0-3.pdf` - Manual completo de ARCA v4.0.3
+  - `manual-desarrollador-ARCA-COMPG-v4-0-2.pdf` - Manual ARCA v4.0.2
+  - `WSAAmanualDev.pdf` - Manual de desarrollo WSAA
+
+- **Especificaciones Técnicas:**
+  - `Especificacion_Tecnica_WSAA_1.2.2.pdf` - Especificación técnica WSAA
+  - `WSAA.ObtenerCertificado.pdf` - Guía para obtener certificados
+  - `ADMINREL.DelegarWS.pdf` - Guía de delegación de Web Services
+
+- **Guías de Adhesión:**
+  - `WSASS_como_adherirse.pdf` - Cómo adherirse a Web Services
+  - `WSASS_manual.pdf` - Manual de Web Services
+
+- **Certificados de Producción:**
+  - `Cadena_de_certificacion_prod_2024_2035/` - Certificados raíz e intermedios de AFIP para producción (2024-2035)
 
     ---
 
