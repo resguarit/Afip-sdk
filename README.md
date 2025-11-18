@@ -656,13 +656,10 @@
 
 ### Guías Detalladas
 
-- **[Datos para Facturar](DATOS_PARA_FACTURAR.md)** 📋 ⭐ **NUEVO** - Qué datos necesitas para facturar
-- **[Integración en Sistema POS](INTEGRACION_POS.md)** 🎯 - Guía específica para sistemas POS
-- **[Soporte Multi-CUIT](MULTI_CUIT_SUPPORT.md)** 🔄 - Cómo usar múltiples CUITs
-- **[Explicación de Funciones del SDK](EXPLICACION_FUNCIONES_SDK.md)** 🔍 - Qué hace cada función internamente
-- **[Guía de Uso Completa](GUIA_USO_LARAVEL.md)** ⭐ - Instalación y uso detallado
-- **[Instalación Rápida](INSTALACION_RAPIDA.md)** ⚡ - Setup en 5 minutos
-- **[Checklist Pre-Producción](CHECKLIST_PRE_PRODUCCION.md)** ✅ - Qué necesitas antes de probar
+- **[Activar Certificado en ARCA](ACTIVAR_CERTIFICADO_ARCA.md)** 🔐 ⭐ **NUEVO** - Guía paso a paso para activar certificado en ARCA
+- **[Solución: Error de Certificado](SOLUCION_CERTIFICADO.md)** 🔧 - Troubleshooting de problemas con certificados
+- **[Instalación en Proyecto POS](INSTALACION_PROYECTO_POS.md)** 📦 - Guía de instalación en tu proyecto
+- **[Actualizar SDK](ACTUALIZAR_SDK.md)** 🔄 - Cómo actualizar el SDK cuando Composer detecta cambios
 - **[Configurar Certificados](CONFIGURAR_CERTIFICADOS.md)** 🔐 - Guía completa de certificados
 - **[Guía de Pruebas](GUIA_PRUEBAS.md)** 🧪 - Ejemplos y scripts de prueba
 

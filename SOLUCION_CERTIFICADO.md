@@ -167,6 +167,8 @@ El error "No se ha encontrado certificado de firmador" puede significar:
 
 ## 🔍 Verificar en ARCA
 
+**📖 Para una guía detallada paso a paso, consulta: [ACTIVAR_CERTIFICADO_ARCA.md](ACTIVAR_CERTIFICADO_ARCA.md)**
+
 1. **Verificar certificado activado:**
    - ARCA → Certificados
    - Busca tu certificado (serial: `1bfe290685dac75c` o `770c9971708cae1c`)
