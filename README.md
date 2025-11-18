@@ -275,16 +275,25 @@
 
     #### 2. Portal Web de AFIP
 
+    **⚠️ IMPORTANTE - MODO TESTING (Homologación):**
+    
+    En el entorno de **testing/homologación**, las facturas **SÍ se registran** en los servidores de AFIP (verificado mediante WSFE), pero el **portal web puede NO mostrarlas** debido a limitaciones del portal en el ambiente de pruebas.
+    
+    **Forma confiable de verificar en testing:**
+    - Usa el SDK para consultar: `Afip::getLastAuthorizedInvoice()`
+    - Las facturas están registradas en AFIP (el SDK las consulta directamente)
+    - El portal web es solo una interfaz y puede tener limitaciones en testing
+    
     **Para Testing (Homologación):**
-    - Ve a: https://www.afip.gob.ar/fe/
-    - Ingresa con tu CUIT
-    - Ve a **"Consultas"** → **"Comprobantes Autorizados"**
-    - Busca por número de comprobante, CAE o fecha
+    - Portal: https://www.afip.gob.ar/fe/
+    - ⚠️ **Nota:** Las facturas pueden no aparecer en el portal web de testing
+    - ✅ **Verificación confiable:** Usa el SDK (`getLastAuthorizedInvoice()`)
 
     **Para Producción:**
-    - Ve a: https://www.afip.gob.ar/fe/
+    - Portal: https://www.afip.gob.ar/fe/
     - Ingresa con tu CUIT
-    - Consulta tus comprobantes autorizados
+    - Las facturas **SÍ aparecerán** en el portal web
+    - También puedes verificar mediante SDK
 
     #### 3. En tu Base de Datos
 
