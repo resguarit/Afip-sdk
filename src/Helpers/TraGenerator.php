@@ -125,71 +125,9 @@ class TraGenerator
      */
     private static function getSourceDn(string $cuit, ?string $certPath = null): string
     {
-        // Si no hay certificado, usar formato estándar (backward compatibility)
-        if ($certPath === null || !file_exists($certPath)) {
-            return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
-        }
-
-        try {
-            // Leer certificado
-            $certContent = file_get_contents($certPath);
-            if ($certContent === false) {
-                // Fallback a formato estándar si no se puede leer
-                return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
-            }
-
-            // Parsear certificado
-            $certInfo = openssl_x509_parse($certContent);
-            if ($certInfo === false || !isset($certInfo['subject'])) {
-                // Fallback a formato estándar si no se puede parsear
-                return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
-            }
-
-            $subject = $certInfo['subject'];
-            
-            // Construir DN desde el certificado
-            // Según el error de AFIP, el formato esperado es:
-            // 2.5.4.5=#<hex_encoded>,cn=<value> (sin O ni C si no están en el certificado)
-            $dnParts = [];
-            
-            // serialNumber - AFIP espera formato OID (2.5.4.5) con valor codificado
-            // IMPORTANTE: Debe ir PRIMERO según el error de AFIP
-            if (isset($subject['serialNumber'])) {
-                $serialValue = $subject['serialNumber'];
-                // Codificar el valor en formato DER para el OID
-                // El formato es: 2.5.4.5=#<hex_encoded_value>
-                $encoded = self::encodeDerString($serialValue);
-                $dnParts[] = '2.5.4.5=#' . $encoded;
-            }
-            
-            // CN (Common Name) - AFIP espera en minúsculas
-            // IMPORTANTE: Debe ir DESPUÉS del serialNumber
-            if (isset($subject['CN'])) {
-                $dnParts[] = 'cn=' . strtolower($subject['CN']);
-            }
-
-            // NO agregar O y C si no están en el certificado original
-            // El error de AFIP indica que no los espera si no están en el certificado
-            // Solo agregar si realmente existen en el certificado
-            if (isset($subject['O']) && !empty($subject['O'])) {
-                $dnParts[] = 'o=' . strtolower($subject['O']);
-            }
-            
-            if (isset($subject['C']) && !empty($subject['C'])) {
-                $dnParts[] = 'c=' . strtolower($subject['C']);
-            }
-
-            // Si no se pudo construir el DN desde el certificado, lanzar excepción
-            // en lugar de usar fallback, para que el error sea más claro
-            if (empty($dnParts)) {
-                throw new \Exception('No se pudo extraer DN del certificado');
-            }
-
-            return implode(',', $dnParts);
-        } catch (\Exception $e) {
-            // En caso de error, usar formato estándar
-            return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
-        }
+        // Usar formato estándar simple que AFIP acepta
+        // El formato debe ser: CN=<cuit>,O=AFIP,C=AR,serialNumber=CUIT <cuit>
+        return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
     }
 
     /**

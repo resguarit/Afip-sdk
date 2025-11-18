@@ -102,6 +102,12 @@ class WsaaService
             $traXml = $this->environment === 'production'
                 ? TraGenerator::generateForProduction($service, $cuit, $certPath)
                 : TraGenerator::generate($service, $cuit, $certPath);
+            
+            // Log del XML generado para debugging (solo primeros 500 caracteres)
+            $this->log('debug', 'TRA XML generado', [
+                'xml_preview' => substr($traXml, 0, 500),
+                'xml_length' => strlen($traXml),
+            ]);
 
             // 3. Crear mensaje CMS (PKCS#7) con el TRA firmado
             $this->log('debug', 'Generando mensaje CMS (PKCS#7)');
