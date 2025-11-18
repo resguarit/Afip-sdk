@@ -103,17 +103,12 @@ class WsaaService
                 ? TraGenerator::generateForProduction($service, $cuit, $certPath)
                 : TraGenerator::generate($service, $cuit, $certPath);
 
-            // Log del XML generado para debugging
-            // Usar error_log para asegurar que se muestre
-            error_log('=== TRA XML GENERADO ===');
-            error_log($traXml);
-            error_log('=== FIN TRA XML ===');
-            
-            // También log normal
-            $this->log('info', 'TRA XML generado', [
+            // Log del XML generado (solo preview en producción, completo en debug)
+            $logLevel = config('app.debug', false) ? 'debug' : 'info';
+            $this->log($logLevel, 'TRA XML generado', [
                 'xml_preview' => substr($traXml, 0, 500),
-                'xml_full' => $traXml, // XML completo para debugging
                 'xml_length' => strlen($traXml),
+                ...(config('app.debug', false) ? ['xml_full' => $traXml] : []),
             ]);
 
             // 3. Crear mensaje CMS (PKCS#7) con el TRA firmado

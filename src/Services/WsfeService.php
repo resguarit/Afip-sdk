@@ -277,11 +277,13 @@ class WsfeService
             ? $soapResponse->FECompUltimoAutorizadoResult
             : $soapResponse;
 
-        // Log de la respuesta para debugging
-        $this->log('debug', 'Respuesta de FECompUltimoAutorizado', [
-            'response_type' => gettype($response),
-            'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
-        ]);
+        // Log de respuesta (solo en modo debug)
+        if (config('app.debug', false)) {
+            $this->log('debug', 'Respuesta de FECompUltimoAutorizado', [
+                'response_type' => gettype($response),
+                'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
+            ]);
+        }
 
         // Verificar errores de forma robusta
         $errors = [];
@@ -405,10 +407,12 @@ class WsfeService
             ? $soapResponse->FECAESolicitarResult
             : $soapResponse;
 
-        // Log para debugging
-        $this->log('debug', 'Respuesta RAW de WSFE', [
-            'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR)
-        ]);
+        // Log de respuesta (solo en modo debug)
+        if (config('app.debug', false)) {
+            $this->log('debug', 'Respuesta RAW de WSFE', [
+                'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR)
+            ]);
+        }
 
         // Verificar resultado
         if (!isset($response->FeCabResp) || !isset($response->FeDetResp)) {

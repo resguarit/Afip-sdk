@@ -44,3 +44,7 @@ dist/
 *.log
 logs/
 
+# Test files temporales
+test-*.php
+!tests/
+
