@@ -244,7 +244,10 @@ class AfipService implements AfipServiceInterface
 
                     if ($privateKey !== false) {
                         $certificateMatchesKey = openssl_x509_check_private_key($certContent, $privateKey);
-                        openssl_free_key($privateKey);
+                        // openssl_free_key() is deprecated in PHP 8.0+, keys are freed automatically
+                        if (PHP_VERSION_ID < 80000) {
+                            openssl_free_key($privateKey);
+                        }
 
                         if (!$certificateMatchesKey) {
                             $issues[] = 'El certificado y la clave privada no coinciden';
