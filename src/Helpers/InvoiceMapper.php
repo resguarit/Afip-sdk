@@ -35,13 +35,21 @@ class InvoiceMapper
         $totalExento = $invoice['totalExento'] ?? $invoice['exemptAmount'] ?? 0;
         $totalTributos = $invoice['totalTributos'] ?? $invoice['tributesTotal'] ?? 0;
         
+        // Determinar valor por defecto de CondicionIVAReceptorId según tipo de comprobante
+        // Factura A (1) -> Default: 1 (Responsable Inscripto)
+        // Factura B (6) u otra -> Default: 5 (Consumidor Final)
+        $invoiceType = (int) ($invoice['invoiceType'] ?? 1);
+        $defaultCondicionIVA = ($invoiceType === 1) ? 1 : 5;
+        
         $feDetReqItem = [
             'Concepto' => (int) ($invoice['concept'] ?? 1),
             'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
             'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? '0'),
             // Campo obligatorio por RG 5616: Condición frente al IVA del receptor
             // 1=IVA Resp. Inscripto, 4=Exento, 5=Consumidor Final, 6=Monotributo
-            'CondicionIVAReceptorId' => (int) ($invoice['receiverConditionIVA'] ?? $invoice['condicionIVAReceptorId'] ?? 5),
+            // Si es Factura A (1) -> Default: 1 (Responsable Inscripto)
+            // Si es Factura B (6) u otra -> Default: 5 (Consumidor Final)
+            'CondicionIVAReceptorId' => (int) ($invoice['receiverConditionIVA'] ?? $invoice['condicionIVAReceptorId'] ?? $defaultCondicionIVA),
             'CbteDesde' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
