@@ -254,6 +254,64 @@
 
     **Nota:** El SDK **automáticamente** consulta el último comprobante antes de autorizar para asegurar correlatividad. No necesitas hacerlo manualmente.
 
+    ### Verificar Factura Autorizada
+
+    Después de autorizar una factura, puedes verificar que fue generada correctamente de varias formas:
+
+    #### 1. Consultar Último Comprobante (SDK)
+
+    ```php
+    use Resguar\AfipSdk\Facades\Afip;
+
+    // Consultar último comprobante autorizado
+    $lastInvoice = Afip::getLastAuthorizedInvoice(
+        pointOfSale: 1,
+        invoiceType: 1
+    );
+
+    echo "Número: " . $lastInvoice['CbteNro'] . "\n";
+    echo "Fecha: " . $lastInvoice['CbteFch'] . "\n";
+    ```
+
+    #### 2. Portal Web de AFIP
+
+    **Para Testing (Homologación):**
+    - Ve a: https://www.afip.gob.ar/fe/
+    - Ingresa con tu CUIT
+    - Ve a **"Consultas"** → **"Comprobantes Autorizados"**
+    - Busca por número de comprobante, CAE o fecha
+
+    **Para Producción:**
+    - Ve a: https://www.afip.gob.ar/fe/
+    - Ingresa con tu CUIT
+    - Consulta tus comprobantes autorizados
+
+    #### 3. En tu Base de Datos
+
+    Si guardaste el CAE en tu base de datos:
+
+    ```php
+    // Ejemplo: Buscar venta por CAE
+    $sale = SaleHeader::where('cae', '75467293120462')->first();
+    
+    if ($sale) {
+        echo "Factura encontrada:\n";
+        echo "CAE: " . $sale->cae . "\n";
+        echo "Número: " . $sale->receipt_number . "\n";
+        echo "Fecha vencimiento CAE: " . $sale->cae_expiration_date . "\n";
+    }
+    ```
+
+    #### 4. En los Logs del Sistema
+
+    ```bash
+    # Ver logs de Laravel
+    tail -f storage/logs/laravel.log | grep -i "cae\|factura\|afip"
+
+    # Buscar por CAE específico
+    grep "75467293120462" storage/logs/laravel.log
+    ```
+
     ---
 
     ## 🎯 Integración en Sistema POS
