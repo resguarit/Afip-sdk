@@ -41,7 +41,8 @@ class TraGenerator
         $source = $dom->createElement('source', $sourceDn);
         $header->appendChild($source);
 
-        $destination = $dom->createElement('destination', 'CN=wsaahomo, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
+        // Destination sin espacios después de las comas (requerido por el esquema XML de AFIP)
+        $destination = $dom->createElement('destination', 'CN=wsaahomo,O=AFIP,C=AR,SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
         // Generar uniqueId único usando timestamp + componente aleatorio
@@ -90,8 +91,8 @@ class TraGenerator
         $source = $dom->createElement('source', $sourceDn);
         $header->appendChild($source);
 
-        // Para producción, el destination es diferente
-        $destination = $dom->createElement('destination', 'CN=wsaa, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
+        // Para producción, el destination es diferente (sin espacios después de las comas)
+        $destination = $dom->createElement('destination', 'CN=wsaa,O=AFIP,C=AR,SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
         // Generar uniqueId único usando timestamp + componente aleatorio
