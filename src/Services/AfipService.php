@@ -190,6 +190,43 @@ class AfipService implements AfipServiceInterface
                 } else {
                     $certificateValid = true;
 
+                    // Extraer serial number del certificado (para comparar con ARCA)
+                    // Usar comando openssl para obtener el serial en formato hexadecimal (como lo muestra ARCA)
+                    $serialNumber = null;
+                    try {
+                        $command = sprintf(
+                            'openssl x509 -in %s -serial -noout 2>/dev/null',
+                            escapeshellarg($certPath)
+                        );
+                        $output = [];
+                        exec($command, $output, $returnVar);
+                        
+                        if ($returnVar === 0 && !empty($output)) {
+                            // El formato es: serial=HEXADECIMAL (ej: serial=1BFE290685DAC75C)
+                            $line = trim($output[0]);
+                            if (preg_match('/serial=([0-9A-Fa-f]+)/', $line, $matches)) {
+                                $serialNumber = strtolower($matches[1]);
+                            }
+                        }
+                    } catch (\Exception $e) {
+                        // Si falla, intentar con openssl_x509_parse
+                        if (isset($certInfo['serialNumber'])) {
+                            $serial = $certInfo['serialNumber'];
+                            if (is_string($serial)) {
+                                $serialNumber = strtolower($serial);
+                            } else {
+                                $serialNumber = strtolower(dechex($serial));
+                            }
+                        } elseif (isset($certInfo['serialNumberHex'])) {
+                            $serialNumber = strtolower($certInfo['serialNumberHex']);
+                        }
+                    }
+                    
+                    if ($serialNumber) {
+                        $details['certificate_serial'] = $serialNumber;
+                        $suggestions[] = "Verifica en ARCA que el certificado con serial '{$serialNumber}' tenga autorización para 'wsfe'";
+                    }
+
                     // Verificar expiración
                     $validTo = $certInfo['validTo_time_t'] ?? null;
                     if ($validTo !== null) {
