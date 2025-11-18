@@ -102,7 +102,7 @@ class WsaaService
             $traXml = $this->environment === 'production'
                 ? TraGenerator::generateForProduction($service, $cuit, $certPath)
                 : TraGenerator::generate($service, $cuit, $certPath);
-            
+
             // Log del XML generado para debugging
             // Usar error_log para asegurar que se muestre
             error_log('=== TRA XML GENERADO ===');

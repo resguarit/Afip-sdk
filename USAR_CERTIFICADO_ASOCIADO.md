@@ -135,3 +135,4 @@ echo "Serial: " . ($diagnosis['details']['certificate_serial'] ?? 'No encontrado
 
 **¿Tienes la clave privada de alguno de estos certificados?** Si no, es mejor agregar el certificado actual al alias en ARCA.
 
+
