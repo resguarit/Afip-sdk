@@ -133,7 +133,7 @@ class WsaaService
 
             // 4. Enviar a WSAA vía SOAP
             $this->log('debug', 'Enviando solicitud a WSAA');
-            $soapResponse = $this->sendToWsaa($cms);
+            $soapResponse = $this->sendToWsaa($cms, $service, $cuit);
 
             // 5. Procesar respuesta y extraer token y firma
             $this->log('debug', 'Procesando respuesta de WSAA');
@@ -304,10 +304,12 @@ class WsaaService
      * Envía el mensaje CMS a WSAA vía SOAP
      *
      * @param string $cms Mensaje CMS codificado en base64
+     * @param string $service Servicio solicitado
+     * @param string $cuit CUIT del contribuyente
      * @return mixed Respuesta de WSAA
      * @throws AfipAuthenticationException
      */
-    protected function sendToWsaa(string $cms): mixed
+    protected function sendToWsaa(string $cms, string $service, string $cuit): mixed
     {
         try {
             // Crear cliente SOAP
@@ -360,6 +362,24 @@ class WsaaService
                 
                 // Generar una respuesta dummy que simula un token válido
                 // Esto permite que el SDK continúe con la operación
+                
+                // Token dummy en formato XML SSO de AFIP
+                $ssoXml = '<?xml version="1.0" encoding="UTF-8"?>'
+                    . '<sso version="2.0">'
+                    . '<id src="CN=wsaa,O=AFIP,C=AR,SERIALNUMBER=CUIT 33693450239" '
+                    . 'dst="C=AR,O=CUIT ' . $cuit . ',OU=dummy,CN=dummy" unique_id="' . time() . '" '
+                    . 'gen_time="' . gmdate('Y-m-d\TH:i:s') . '" exp_time="' . gmdate('Y-m-d\TH:i:s', strtotime('+12 hours')) . '"/>'
+                    . '<operation type="login" value="granted">'
+                    . '<login uid="C=AR,O=AFIP,OU=dummy,CN=dummy" service="' . $service . '" regmethod="22" entity="33693450239" authmethod="cms"/>'
+                    . '</operation>'
+                    . '</sso>';
+                
+                // Codificar el token SSO en base64
+                $tokenBase64 = base64_encode($ssoXml);
+                
+                // Firma dummy (simulada)
+                $signBase64 = base64_encode('dummy_signature_for_already_authenticated_' . time());
+                
                 $dummyXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                     . '<loginTicketResponse>'
                     . '<header>'
@@ -370,8 +390,8 @@ class WsaaService
                     . '<expirationTime>' . gmdate('Y-m-d\TH:i:s.000-03:00', strtotime('+12 hours')) . '</expirationTime>'
                     . '</header>'
                     . '<credentials>'
-                    . '<token>PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9InllcyI/Pg0KPHNzbyB2ZXJzaW9uPSIyLjAiPg0KICAgIDxpZCBzcmM9IkNOPXdzYWEsIE89QUZJUCBDPUFSLCBDPUFSLCBTRVJJQUXOVU1CRVI9Q1VJVCAzMzY5MzQ1MDIzOSIgZHN0PSJDPUFSLCBPPEFJSVBBQJ</token>'
-                    . '<signature>dGVtcG9yYXJ5X3NpZ25hdHVyZV9mb3JfYWxyZWFkeV9hdXRoZW50aWNhdGVk</signature>'
+                    . '<token>' . $tokenBase64 . '</token>'
+                    . '<sign>' . $signBase64 . '</sign>'
                     . '</credentials>'
                     . '</loginTicketResponse>';
                 
