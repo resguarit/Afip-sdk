@@ -186,18 +186,22 @@ class TraGenerator
     /**
      * Codifica un string en formato DER para usar en OID
      * 
+     * AFIP requiere que el serialNumber se codifique como PrintableString (tag 0x13),
+     * no como UTF8String (tag 0x0C). Esto es crítico para que WSAA acepte el TRA.
+     * 
      * @param string $value Valor a codificar
      * @return string Valor codificado en hexadecimal
      */
     private static function encodeDerString(string $value): string
     {
-        // Codificar el string en formato DER UTF8String
-        // El formato DER para UTF8String es: 0x0C (tag) + length + value
+        // Codificar el string en formato DER PrintableString
+        // El formato DER para PrintableString es: 0x13 (tag) + length + value
+        // IMPORTANTE: AFIP requiere PrintableString (0x13), no UTF8String (0x0C)
         $length = strlen($value);
         $encoded = '';
         
-        // Tag para UTF8String
-        $encoded .= '0c';
+        // Tag para PrintableString (AFIP requiere este tag, no UTF8String)
+        $encoded .= '13';
         
         // Longitud (si es menor a 128, usar un byte)
         if ($length < 128) {
