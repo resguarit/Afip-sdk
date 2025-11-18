@@ -44,7 +44,10 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaahomo, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        $uniqueId = $dom->createElement('uniqueId', (string) time());
+        // Generar uniqueId único usando microsegundos para evitar colisiones
+        // AFIP requiere que cada TRA tenga un uniqueId único, incluso si se generan en el mismo segundo
+        $uniqueIdValue = (int)(microtime(true) * 1000000);
+        $uniqueId = $dom->createElement('uniqueId', (string) $uniqueIdValue);
         $header->appendChild($uniqueId);
 
         $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
@@ -89,7 +92,10 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaa, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        $uniqueId = $dom->createElement('uniqueId', (string) time());
+        // Generar uniqueId único usando microsegundos para evitar colisiones
+        // AFIP requiere que cada TRA tenga un uniqueId único, incluso si se generan en el mismo segundo
+        $uniqueIdValue = (int)(microtime(true) * 1000000);
+        $uniqueId = $dom->createElement('uniqueId', (string) $uniqueIdValue);
         $header->appendChild($uniqueId);
 
         $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
