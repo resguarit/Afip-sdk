@@ -277,19 +277,46 @@ class WsfeService
             ? $soapResponse->FECompUltimoAutorizadoResult
             : $soapResponse;
 
+        // Log de la respuesta para debugging
+        $this->log('debug', 'Respuesta de FECompUltimoAutorizado', [
+            'response_type' => gettype($response),
+            'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
+        ]);
+
         // Verificar errores
         if (isset($response->Errors) && !empty($response->Errors)) {
-            $errors = is_array($response->Errors) ? $response->Errors : [$response->Errors];
-            $errorMsg = implode('; ', array_map(function ($error) {
-                return ($error->Code ?? '') . ': ' . ($error->Msg ?? '');
-            }, $errors));
+            $errors = [];
+            $errorList = is_array($response->Errors) ? $response->Errors : [$response->Errors];
+            
+            foreach ($errorList as $error) {
+                $code = trim((string) ($error->Code ?? ''));
+                $msg = trim((string) ($error->Msg ?? ''));
+                if ($code !== '' || $msg !== '') {
+                    $errors[] = [
+                        'code' => $code,
+                        'msg' => $msg,
+                    ];
+                }
+            }
+            
+            // Filtrar errores vacíos
+            $errors = array_filter($errors, fn($e) => $e['code'] !== '' || $e['msg'] !== '');
+            
+            $errorMsg = !empty($errors)
+                ? implode('; ', array_map(fn($e) => trim("{$e['code']}: {$e['msg']}", ': '), $errors))
+                : 'Error desconocido al consultar último comprobante (sin detalles)';
+
+            $this->log('error', 'Error en FECompUltimoAutorizado', [
+                'errors' => $errors,
+                'error_msg' => $errorMsg,
+            ]);
 
             throw new AfipException(
                 "Error al consultar último comprobante: {$errorMsg}",
                 0,
                 null,
-                $errors[0]->Code ?? null,
-                $errors[0]->Msg ?? null
+                $errors[0]['code'] ?? null,
+                $errors[0]['msg'] ?? null
             );
         }
 
