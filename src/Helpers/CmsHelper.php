@@ -50,6 +50,10 @@ class CmsHelper
 
         try {
             // Guardar TRA en archivo temporal
+            // Asegurar que el XML esté en formato UTF-8 sin BOM y sin espacios extra
+            $traXml = trim($traXml);
+            // Remover cualquier BOM UTF-8 si existe
+            $traXml = preg_replace('/^\xEF\xBB\xBF/', '', $traXml);
             file_put_contents($tempTraFile, $traXml);
 
             // Generar CMS usando OpenSSL
