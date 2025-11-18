@@ -76,12 +76,21 @@ class InvoiceMapper
         // Procesar ivaItems si vienen directamente (formato: [['id' => 5, 'baseAmount' => 100, 'amount' => 21]])
         if (!empty($invoice['ivaItems']) && is_array($invoice['ivaItems'])) {
             foreach ($invoice['ivaItems'] as $ivaItem) {
+                // Calcular alícuota si no viene directamente
+                $alicuota = null;
+                if (isset($ivaItem['alicuota']) && $ivaItem['alicuota'] > 0) {
+                    $alicuota = (float) $ivaItem['alicuota'];
+                } elseif (isset($ivaItem['amount']) && isset($ivaItem['baseAmount']) 
+                    && $ivaItem['amount'] > 0 && $ivaItem['baseAmount'] > 0) {
+                    $alicuota = (float) (($ivaItem['amount'] / $ivaItem['baseAmount']) * 100);
+                } else {
+                    $alicuota = 21.0; // Valor por defecto
+                }
+                
                 $alicIva[] = [
                     'Id' => (int) ($ivaItem['id'] ?? 5),
                     'BaseImp' => (float) ($ivaItem['baseAmount'] ?? $ivaItem['baseImponible'] ?? 0),
-                    'Alic' => (float) ($ivaItem['alicuota'] ?? ($ivaItem['amount'] > 0 && $ivaItem['baseAmount'] > 0 
-                        ? ($ivaItem['amount'] / $ivaItem['baseAmount']) * 100 
-                        : 21)),
+                    'Alic' => $alicuota,
                 ];
             }
         }
