@@ -283,29 +283,33 @@ class WsfeService
             'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
         ]);
 
-        // Verificar errores
-        if (isset($response->Errors) && !empty($response->Errors)) {
-            $errors = [];
-            $errorList = is_array($response->Errors) ? $response->Errors : [$response->Errors];
+        // Verificar errores de forma robusta
+        $errors = [];
+        if (isset($response->Errors)) {
+            $rawErrors = $response->Errors;
             
-            foreach ($errorList as $error) {
+            // Normalizar a array si es un solo objeto
+            if (is_object($rawErrors)) {
+                // A veces Errors es un objeto contenedor de Err
+                $rawErrors = $rawErrors->Err ?? $rawErrors;
+            }
+            
+            if (!is_array($rawErrors)) {
+                $rawErrors = [$rawErrors];
+            }
+
+            foreach ($rawErrors as $error) {
                 $code = trim((string) ($error->Code ?? ''));
                 $msg = trim((string) ($error->Msg ?? ''));
                 if ($code !== '' || $msg !== '') {
-                    $errors[] = [
-                        'code' => $code,
-                        'msg' => $msg,
-                    ];
+                    $errors[] = "{$code}: {$msg}";
                 }
             }
-            
-            // Filtrar errores vacíos
-            $errors = array_filter($errors, fn($e) => $e['code'] !== '' || $e['msg'] !== '');
-            
-            $errorMsg = !empty($errors)
-                ? implode('; ', array_map(fn($e) => trim("{$e['code']}: {$e['msg']}", ': '), $errors))
-                : 'Error desconocido al consultar último comprobante (sin detalles)';
+        }
 
+        if (!empty($errors)) {
+            $errorMsg = implode('; ', $errors);
+            
             $this->log('error', 'Error en FECompUltimoAutorizado', [
                 'errors' => $errors,
                 'error_msg' => $errorMsg,
@@ -315,8 +319,8 @@ class WsfeService
                 "Error al consultar último comprobante: {$errorMsg}",
                 0,
                 null,
-                $errors[0]['code'] ?? null,
-                $errors[0]['msg'] ?? null
+                null, // No tenemos un código único fácil de extraer aquí
+                $errorMsg
             );
         }
 
