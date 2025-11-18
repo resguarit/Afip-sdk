@@ -131,17 +131,7 @@ class TraGenerator
     /**
      * Obtiene el DN (Distinguished Name) para el elemento source del TRA
      * 
-     * Si se proporciona la ruta del certificado, extrae el DN del certificado.
-     * Si no, genera un DN estándar usando el CUIT.
-     *
-     * @param string $cuit CUIT del contribuyente
-     * @param string|null $certPath Ruta al certificado (opcional)
-     * @return string DN formateado para el TRA
-     */
-    /**
-     * Obtiene el DN (Distinguished Name) para el elemento source del TRA
-     * 
-     * Si se proporciona la ruta del certificado, extrae el DN del certificado.
+     * Si se proporciona la ruta del certificado, extrae el CN real del certificado.
      * Si no, genera un DN estándar usando el CUIT.
      *
      * @param string $cuit CUIT del contribuyente
