@@ -98,9 +98,10 @@ class WsaaService
 
             // 2. Generar TRA (Ticket de Requerimiento de Acceso)
             $this->log('debug', 'Generando TRA XML');
+            $certPath = $this->certificateManager->getCertPath();
             $traXml = $this->environment === 'production'
-                ? TraGenerator::generateForProduction($service, $cuit)
-                : TraGenerator::generate($service, $cuit);
+                ? TraGenerator::generateForProduction($service, $cuit, $certPath)
+                : TraGenerator::generate($service, $cuit, $certPath);
 
             // 3. Crear mensaje CMS (PKCS#7) con el TRA firmado
             $this->log('debug', 'Generando mensaje CMS (PKCS#7)');
