@@ -28,27 +28,35 @@ class InvoiceMapper
         ];
 
         // Estructura FeDetReq (Detalle - Array de comprobantes)
-        $feDetReq = [
-            [
-                'Concepto' => (int) ($invoice['concept'] ?? 1),
-                'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
-                'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? '0'),
-                'CbteDesde' => (int) ($invoice['invoiceNumber'] ?? 0),
-                'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
-                'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
-                'ImpTotal' => (float) ($invoice['total'] ?? 0),
-                'ImpTotConc' => (float) ($invoice['totalNetoNoGravado'] ?? 0),
-                'ImpNeto' => (float) ($invoice['totalNetoGravado'] ?? 0),
-                'ImpOpEx' => (float) ($invoice['totalExento'] ?? 0),
-                'ImpIVA' => (float) ($invoice['totalIva'] ?? 0),
-                'ImpTrib' => (float) ($invoice['totalTributos'] ?? 0),
-                'FchServDesde' => $invoice['fechaServicioDesde'] ?? null,
-                'FchServHasta' => $invoice['fechaServicioHasta'] ?? null,
-                'FchVtoPago' => $invoice['fechaVtoPago'] ?? null,
-                'MonId' => $invoice['moneda'] ?? 'PES',
-                'MonCotiz' => (float) ($invoice['cotizacionMoneda'] ?? 1),
-            ],
+        $feDetReqItem = [
+            'Concepto' => (int) ($invoice['concept'] ?? 1),
+            'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
+            'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? '0'),
+            'CbteDesde' => (int) ($invoice['invoiceNumber'] ?? 0),
+            'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
+            'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
+            'ImpTotal' => (float) ($invoice['total'] ?? 0),
+            'ImpTotConc' => (float) ($invoice['totalNetoNoGravado'] ?? 0),
+            'ImpNeto' => (float) ($invoice['totalNetoGravado'] ?? 0),
+            'ImpOpEx' => (float) ($invoice['totalExento'] ?? 0),
+            'ImpIVA' => (float) ($invoice['totalIva'] ?? 0),
+            'ImpTrib' => (float) ($invoice['totalTributos'] ?? 0),
+            'MonId' => $invoice['moneda'] ?? 'PES',
+            'MonCotiz' => (float) ($invoice['cotizacionMoneda'] ?? 1),
         ];
+
+        // Agregar campos opcionales solo si tienen valor (SOAP no acepta null)
+        if (!empty($invoice['fechaServicioDesde'])) {
+            $feDetReqItem['FchServDesde'] = (string) $invoice['fechaServicioDesde'];
+        }
+        if (!empty($invoice['fechaServicioHasta'])) {
+            $feDetReqItem['FchServHasta'] = (string) $invoice['fechaServicioHasta'];
+        }
+        if (!empty($invoice['fechaVtoPago'])) {
+            $feDetReqItem['FchVtoPago'] = (string) $invoice['fechaVtoPago'];
+        }
+
+        $feDetReq = [$feDetReqItem];
 
         // Agregar items (AlicIva) si existen
         if (!empty($invoice['items']) && is_array($invoice['items'])) {
@@ -71,13 +79,23 @@ class InvoiceMapper
         if (!empty($invoice['tributos']) && is_array($invoice['tributos'])) {
             $tributos = [];
             foreach ($invoice['tributos'] as $tributo) {
-                $tributos[] = [
+                $tributoItem = [
                     'Id' => (int) ($tributo['id'] ?? 0),
-                    'Desc' => (string) ($tributo['descripcion'] ?? ''),
-                    'BaseImp' => (float) ($tributo['baseImponible'] ?? 0),
-                    'Alic' => (float) ($tributo['alicuota'] ?? 0),
                     'Importe' => (float) ($tributo['importe'] ?? 0),
                 ];
+                
+                // Agregar campos opcionales solo si tienen valor
+                if (!empty($tributo['descripcion'])) {
+                    $tributoItem['Desc'] = (string) $tributo['descripcion'];
+                }
+                if (isset($tributo['baseImponible']) && $tributo['baseImponible'] > 0) {
+                    $tributoItem['BaseImp'] = (float) $tributo['baseImponible'];
+                }
+                if (isset($tributo['alicuota']) && $tributo['alicuota'] > 0) {
+                    $tributoItem['Alic'] = (float) $tributo['alicuota'];
+                }
+                
+                $tributos[] = $tributoItem;
             }
             if (!empty($tributos)) {
                 $feDetReq[0]['Tributos'] = $tributos;
@@ -92,6 +110,10 @@ class InvoiceMapper
             ];
         }
 
+        // Limpiar valores null antes de enviar a SOAP (SOAP no acepta null)
+        $feCabReq = self::removeNullValues($feCabReq);
+        $feDetReq = self::removeNullValues($feDetReq);
+
         // Estructura completa FeCAERequest
         return [
             'FeCAEReq' => [
@@ -99,6 +121,37 @@ class InvoiceMapper
                 'FeDetReq' => $feDetReq,
             ],
         ];
+    }
+
+    /**
+     * Elimina valores null de un array recursivamente
+     * SOAP no acepta valores null, por lo que deben eliminarse antes de enviar
+     *
+     * @param array $data Array a limpiar
+     * @return array Array sin valores null
+     */
+    private static function removeNullValues(array $data): array
+    {
+        $cleaned = [];
+        foreach ($data as $key => $value) {
+            if ($value === null) {
+                // Omitir valores null
+                continue;
+            }
+            
+            if (is_array($value)) {
+                // Limpiar recursivamente arrays anidados
+                $cleanedValue = self::removeNullValues($value);
+                // Solo agregar si el array no está vacío después de limpiar
+                if (!empty($cleanedValue)) {
+                    $cleaned[$key] = $cleanedValue;
+                }
+            } else {
+                $cleaned[$key] = $value;
+            }
+        }
+        
+        return $cleaned;
     }
 
     /**
