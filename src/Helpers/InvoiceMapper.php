@@ -50,6 +50,8 @@ class InvoiceMapper
             'ImpTrib' => (float) $totalTributos,
             'MonId' => $invoice['moneda'] ?? 'PES',
             'MonCotiz' => (float) ($invoice['cotizacionMoneda'] ?? 1),
+            // Campo obligatorio según Resolución General Nro 5616
+            'Iva' => (int) ($invoice['customerIvaCondition'] ?? $invoice['condicionFrenteIva'] ?? $invoice['ivaCondition'] ?? 5), // 5 = Responsable Monotributo por defecto
         ];
 
         // Agregar campos opcionales solo si tienen valor (SOAP no acepta null)
@@ -71,7 +73,7 @@ class InvoiceMapper
         $feDetReq = [$feDetReqItem];
 
         // Agregar items (AlicIva) si existen
-        $alicIva = [];
+            $alicIva = [];
         
         // Procesar ivaItems si vienen directamente (formato: [['id' => 5, 'baseAmount' => 100, 'amount' => 21]])
         if (!empty($invoice['ivaItems']) && is_array($invoice['ivaItems'])) {
@@ -117,8 +119,8 @@ class InvoiceMapper
             }
         }
         
-        if (!empty($alicIva)) {
-            $feDetReq[0]['Iva'] = $alicIva;
+            if (!empty($alicIva)) {
+                $feDetReq[0]['Iva'] = $alicIva;
         }
 
         // Agregar tributos si existen
