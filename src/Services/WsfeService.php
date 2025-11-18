@@ -195,29 +195,40 @@ class WsfeService
             // 6. Procesar respuesta
             return $this->parseLastInvoiceResponse($soapResponse);
         } catch (SoapFault $e) {
+            $errorMsg = $e->getMessage() ?: ($e->faultstring ?? 'Error desconocido de SOAP');
+            $faultCode = $e->faultcode ?? null;
+            $faultString = $e->faultstring ?? null;
+            
             $this->log('error', 'Error SOAP al consultar último comprobante', [
-                'message' => $e->getMessage(),
-                'faultcode' => $e->faultcode ?? null,
-                'faultstring' => $e->faultstring ?? null,
+                'message' => $errorMsg,
+                'faultcode' => $faultCode,
+                'faultstring' => $faultString,
                 'cuit' => $cuit,
+                'exception_class' => get_class($e),
             ]);
 
             throw new AfipException(
-                "Error al consultar último comprobante: {$e->getMessage()}",
+                "Error al consultar último comprobante: {$errorMsg}",
                 (int) $e->getCode(),
                 $e,
-                $e->faultcode ?? null,
-                $e->faultstring ?? null
+                $faultCode,
+                $faultString
             );
+        } catch (AfipException $e) {
+            // Re-lanzar excepciones de AFIP sin modificar
+            throw $e;
         } catch (\Exception $e) {
+            $errorMsg = $e->getMessage() ?: 'Error desconocido';
+            
             $this->log('error', 'Error inesperado al consultar último comprobante', [
-                'message' => $e->getMessage(),
-                'exception' => $e,
+                'message' => $errorMsg,
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
                 'cuit' => $cuit,
             ]);
 
             throw new AfipException(
-                "Error al consultar último comprobante: {$e->getMessage()}",
+                "Error al consultar último comprobante: {$errorMsg}",
                 (int) $e->getCode(),
                 $e
             );
