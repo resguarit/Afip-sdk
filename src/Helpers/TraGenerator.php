@@ -45,10 +45,10 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaahomo,O=AFIP,C=AR,SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        // Generar uniqueId único usando timestamp + componente aleatorio
-        // AFIP requiere que cada TRA tenga un uniqueId único
-        // Usamos timestamp en segundos + número aleatorio de 3 dígitos para garantizar unicidad
-        $uniqueIdValue = time() . sprintf('%03d', mt_rand(0, 999));
+        // CORRECCIÓN: Usar solo time() para mantener el ID dentro del límite de 32-bit (unsignedInt)
+        // El límite es 4,294,967,295. time() actual es aprox 1,763,xxx,xxx (cabe perfectamente)
+        // AFIP especifica que uniqueId debe ser xs:unsignedInt (máximo 4,294,967,295)
+        $uniqueIdValue = (string) time();
         $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
@@ -102,10 +102,10 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaa,O=AFIP,C=AR,SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        // Generar uniqueId único usando timestamp + componente aleatorio
-        // AFIP requiere que cada TRA tenga un uniqueId único
-        // Usamos timestamp en segundos + número aleatorio de 3 dígitos para garantizar unicidad
-        $uniqueIdValue = time() . sprintf('%03d', mt_rand(0, 999));
+        // CORRECCIÓN: Usar solo time() para mantener el ID dentro del límite de 32-bit (unsignedInt)
+        // El límite es 4,294,967,295. time() actual es aprox 1,763,xxx,xxx (cabe perfectamente)
+        // AFIP especifica que uniqueId debe ser xs:unsignedInt (máximo 4,294,967,295)
+        $uniqueIdValue = (string) time();
         $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
