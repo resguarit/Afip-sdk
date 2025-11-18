@@ -138,12 +138,33 @@ class TraGenerator
      * @param string|null $certPath Ruta al certificado (opcional)
      * @return string DN formateado para el TRA
      */
+    /**
+     * Obtiene el DN (Distinguished Name) para el elemento source del TRA
+     * 
+     * Si se proporciona la ruta del certificado, extrae el DN del certificado.
+     * Si no, genera un DN estándar usando el CUIT.
+     *
+     * @param string $cuit CUIT del contribuyente
+     * @param string|null $certPath Ruta al certificado (opcional)
+     * @return string DN formateado para el TRA
+     */
     private static function getSourceDn(string $cuit, ?string $certPath = null): string
     {
-        // Usar formato estándar simple que AFIP acepta
-        // IMPORTANTE: Usar SERIALNUMBER en mayúsculas para consistencia con destination
-        // El formato debe ser: CN=<cuit>,O=AFIP,C=AR,SERIALNUMBER=CUIT <cuit>
-        return 'CN=' . $cuit . ',O=AFIP,C=AR,SERIALNUMBER=CUIT ' . $cuit;
+        $cn = $cuit; // Valor por defecto
+
+        // Intentar extraer el CN real (Alias) del certificado
+        if ($certPath !== null && file_exists($certPath)) {
+            $certContent = file_get_contents($certPath);
+            if ($certContent !== false) {
+                $certInfo = openssl_x509_parse($certContent);
+                if ($certInfo !== false && isset($certInfo['subject']['CN'])) {
+                    $cn = $certInfo['subject']['CN'];
+                }
+            }
+        }
+
+        // Construir DN con el CN correcto (Alias o CUIT)
+        return 'CN=' . $cn . ',O=AFIP,C=AR,SERIALNUMBER=CUIT ' . $cuit;
     }
 
     /**
