@@ -28,6 +28,13 @@ class InvoiceMapper
         ];
 
         // Estructura FeDetReq (Detalle - Array de comprobantes)
+        // Mapear alias comunes para compatibilidad
+        $totalNetoGravado = $invoice['totalNetoGravado'] ?? $invoice['netAmount'] ?? 0;
+        $totalIva = $invoice['totalIva'] ?? $invoice['ivaTotal'] ?? 0;
+        $totalNetoNoGravado = $invoice['totalNetoNoGravado'] ?? $invoice['nonTaxedTotal'] ?? 0;
+        $totalExento = $invoice['totalExento'] ?? $invoice['exemptAmount'] ?? 0;
+        $totalTributos = $invoice['totalTributos'] ?? $invoice['tributesTotal'] ?? 0;
+        
         $feDetReqItem = [
             'Concepto' => (int) ($invoice['concept'] ?? 1),
             'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
@@ -36,31 +43,51 @@ class InvoiceMapper
             'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
             'ImpTotal' => (float) ($invoice['total'] ?? 0),
-            'ImpTotConc' => (float) ($invoice['totalNetoNoGravado'] ?? 0),
-            'ImpNeto' => (float) ($invoice['totalNetoGravado'] ?? 0),
-            'ImpOpEx' => (float) ($invoice['totalExento'] ?? 0),
-            'ImpIVA' => (float) ($invoice['totalIva'] ?? 0),
-            'ImpTrib' => (float) ($invoice['totalTributos'] ?? 0),
+            'ImpTotConc' => (float) $totalNetoNoGravado,
+            'ImpNeto' => (float) $totalNetoGravado,
+            'ImpOpEx' => (float) $totalExento,
+            'ImpIVA' => (float) $totalIva,
+            'ImpTrib' => (float) $totalTributos,
             'MonId' => $invoice['moneda'] ?? 'PES',
             'MonCotiz' => (float) ($invoice['cotizacionMoneda'] ?? 1),
         ];
 
         // Agregar campos opcionales solo si tienen valor (SOAP no acepta null)
-        if (!empty($invoice['fechaServicioDesde'])) {
-            $feDetReqItem['FchServDesde'] = (string) $invoice['fechaServicioDesde'];
+        // Mapear alias para fechas de servicio
+        $fechaServicioDesde = $invoice['fechaServicioDesde'] ?? $invoice['serviceStartDate'] ?? null;
+        $fechaServicioHasta = $invoice['fechaServicioHasta'] ?? $invoice['serviceEndDate'] ?? null;
+        $fechaVtoPago = $invoice['fechaVtoPago'] ?? $invoice['paymentDueDate'] ?? null;
+        
+        if (!empty($fechaServicioDesde)) {
+            $feDetReqItem['FchServDesde'] = (string) $fechaServicioDesde;
         }
-        if (!empty($invoice['fechaServicioHasta'])) {
-            $feDetReqItem['FchServHasta'] = (string) $invoice['fechaServicioHasta'];
+        if (!empty($fechaServicioHasta)) {
+            $feDetReqItem['FchServHasta'] = (string) $fechaServicioHasta;
         }
-        if (!empty($invoice['fechaVtoPago'])) {
-            $feDetReqItem['FchVtoPago'] = (string) $invoice['fechaVtoPago'];
+        if (!empty($fechaVtoPago)) {
+            $feDetReqItem['FchVtoPago'] = (string) $fechaVtoPago;
         }
 
         $feDetReq = [$feDetReqItem];
 
         // Agregar items (AlicIva) si existen
-        if (!empty($invoice['items']) && is_array($invoice['items'])) {
-            $alicIva = [];
+        $alicIva = [];
+        
+        // Procesar ivaItems si vienen directamente (formato: [['id' => 5, 'baseAmount' => 100, 'amount' => 21]])
+        if (!empty($invoice['ivaItems']) && is_array($invoice['ivaItems'])) {
+            foreach ($invoice['ivaItems'] as $ivaItem) {
+                $alicIva[] = [
+                    'Id' => (int) ($ivaItem['id'] ?? 5),
+                    'BaseImp' => (float) ($ivaItem['baseAmount'] ?? $ivaItem['baseImponible'] ?? 0),
+                    'Alic' => (float) ($ivaItem['alicuota'] ?? ($ivaItem['amount'] > 0 && $ivaItem['baseAmount'] > 0 
+                        ? ($ivaItem['amount'] / $ivaItem['baseAmount']) * 100 
+                        : 21)),
+                ];
+            }
+        }
+        
+        // Procesar items para extraer información de IVA (si no se pasaron ivaItems)
+        if (empty($alicIva) && !empty($invoice['items']) && is_array($invoice['items'])) {
             foreach ($invoice['items'] as $item) {
                 if (isset($item['taxRate']) && $item['taxRate'] > 0) {
                     $alicIva[] = [
@@ -70,9 +97,10 @@ class InvoiceMapper
                     ];
                 }
             }
-            if (!empty($alicIva)) {
-                $feDetReq[0]['Iva'] = $alicIva;
-            }
+        }
+        
+        if (!empty($alicIva)) {
+            $feDetReq[0]['Iva'] = $alicIva;
         }
 
         // Agregar tributos si existen
