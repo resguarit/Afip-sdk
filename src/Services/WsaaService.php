@@ -103,8 +103,13 @@ class WsaaService
                 ? TraGenerator::generateForProduction($service, $cuit, $certPath)
                 : TraGenerator::generate($service, $cuit, $certPath);
             
-            // Log del XML generado para debugging (solo primeros 500 caracteres)
-            // Usar 'info' en lugar de 'debug' para que se muestre en los logs
+            // Log del XML generado para debugging
+            // Usar error_log para asegurar que se muestre
+            error_log('=== TRA XML GENERADO ===');
+            error_log($traXml);
+            error_log('=== FIN TRA XML ===');
+            
+            // También log normal
             $this->log('info', 'TRA XML generado', [
                 'xml_preview' => substr($traXml, 0, 500),
                 'xml_full' => $traXml, // XML completo para debugging
