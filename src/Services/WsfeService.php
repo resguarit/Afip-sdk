@@ -405,107 +405,72 @@ class WsfeService
             ? $soapResponse->FECAESolicitarResult
             : $soapResponse;
 
-        // Log completo de la respuesta para debugging
-        $this->log('debug', 'Respuesta completa de WSFE', [
-            'response_type' => gettype($response),
-            'response_keys' => is_object($response) ? array_keys((array)$response) : null,
-            'response_preview' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
+        // Log para debugging
+        $this->log('debug', 'Respuesta RAW de WSFE', [
+            'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR)
         ]);
 
         // Verificar resultado
         if (!isset($response->FeCabResp) || !isset($response->FeDetResp)) {
-            $this->log('error', 'Estructura de respuesta inválida', [
-                'has_FeCabResp' => isset($response->FeCabResp),
-                'has_FeDetResp' => isset($response->FeDetResp),
-                'response_structure' => is_object($response) ? json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR) : $response,
-            ]);
             throw new AfipAuthorizationException('Respuesta inválida de WSFE: estructura incorrecta');
         }
 
         $feCabResp = $response->FeCabResp;
         $feDetResp = $response->FeDetResp;
 
+        // Helper para extraer mensajes (Errores u Observaciones)
+        $extractMessages = function($container, $wrapper) {
+            $messages = [];
+            if (!isset($container)) return $messages;
+
+            $items = $container;
+            // Si es objeto, buscar el wrapper interno (ej: Errors->Err o Observaciones->Obs)
+            if (is_object($items)) {
+                $items = $items->{$wrapper} ?? $items;
+            }
+            
+            if (!is_array($items)) {
+                $items = [$items];
+            }
+
+            foreach ($items as $item) {
+                $code = trim((string) ($item->Code ?? ''));
+                $msg = trim((string) ($item->Msg ?? ''));
+                if ($code !== '' || $msg !== '') {
+                    $messages[] = [
+                        'code' => $code,
+                        'msg' => $msg,
+                    ];
+                }
+            }
+            return $messages;
+        };
+
         // Verificar resultado de la cabecera
         $resultado = (string) ($feCabResp->Resultado ?? '');
         
-        $this->log('debug', 'Resultado de la cabecera', [
-            'resultado' => $resultado,
-            'feCabResp_keys' => is_object($feCabResp) ? array_keys((array)$feCabResp) : null,
-            'has_Errors' => isset($feCabResp->Errors),
-        ]);
-        
         if ($resultado !== 'A') {
-            // 'A' = Aprobado, otros valores = Rechazado/Error
+            // Recolectar todos los errores posibles
             $errors = [];
             
-            // Intentar obtener errores de diferentes formas
+            // 1. Buscar en Errors globales (FeCabResp->Errors->Err)
             if (isset($feCabResp->Errors)) {
-                if (is_array($feCabResp->Errors)) {
-                    foreach ($feCabResp->Errors as $error) {
-                        $code = trim((string) ($error->Code ?? ''));
-                        $msg = trim((string) ($error->Msg ?? ''));
-                        if ($code !== '' || $msg !== '') {
-                            $errors[] = [
-                                'code' => $code,
-                                'msg' => $msg,
-                            ];
-                        }
-                    }
-                } elseif (is_object($feCabResp->Errors)) {
-                    $code = trim((string) ($feCabResp->Errors->Code ?? ''));
-                    $msg = trim((string) ($feCabResp->Errors->Msg ?? ''));
-                    if ($code !== '' || $msg !== '') {
-                        $errors[] = [
-                            'code' => $code,
-                            'msg' => $msg,
-                        ];
-                    }
-                }
-            }
-            
-            // Si no hay errores en la cabecera, verificar el detalle
-            if (empty($errors)) {
-                $detalle = is_array($feDetResp->FECAEDetResponse) 
-                    ? $feDetResp->FECAEDetResponse[0] 
-                    : $feDetResp->FECAEDetResponse;
-                    
-                if (isset($detalle->Observaciones)) {
-                    if (is_array($detalle->Observaciones)) {
-                        foreach ($detalle->Observaciones as $obs) {
-                            $code = trim((string) ($obs->Code ?? ''));
-                            $msg = trim((string) ($obs->Msg ?? ''));
-                            if ($code !== '' || $msg !== '') {
-                                $errors[] = [
-                                    'code' => $code,
-                                    'msg' => $msg,
-                                ];
-                            }
-                        }
-                    } elseif (is_object($detalle->Observaciones)) {
-                        $code = trim((string) ($detalle->Observaciones->Code ?? ''));
-                        $msg = trim((string) ($detalle->Observaciones->Msg ?? ''));
-                        if ($code !== '' || $msg !== '') {
-                            $errors[] = [
-                                'code' => $code,
-                                'msg' => $msg,
-                            ];
-                        }
-                    }
-                }
+                $errors = array_merge($errors, $extractMessages($feCabResp->Errors, 'Err'));
             }
 
-            // Filtrar errores vacíos y construir mensaje
-            $errors = array_filter($errors, fn($e) => $e['code'] !== '' || $e['msg'] !== '');
-            
+            // 2. Buscar en Observaciones del detalle (FeDetResp->FECAEDetResponse->Observaciones->Obs)
+            // A veces el rechazo está aquí si es específico del comprobante
+            $detalle = is_array($feDetResp->FECAEDetResponse) 
+                ? $feDetResp->FECAEDetResponse[0] 
+                : $feDetResp->FECAEDetResponse;
+                
+            if (isset($detalle->Observaciones)) {
+                $errors = array_merge($errors, $extractMessages($detalle->Observaciones, 'Obs'));
+            }
+
             $errorMsg = !empty($errors)
-                ? implode('; ', array_map(fn($e) => trim("{$e['code']}: {$e['msg']}", ': '), $errors))
+                ? implode('; ', array_map(fn($e) => "{$e['code']}: {$e['msg']}", $errors))
                 : "Error desconocido en la respuesta de WSFE (Resultado: {$resultado})";
-
-            $this->log('error', 'Error al autorizar comprobante', [
-                'resultado' => $resultado,
-                'errors' => $errors,
-                'feCabResp' => is_object($feCabResp) ? json_encode($feCabResp, JSON_PARTIAL_OUTPUT_ON_ERROR) : $feCabResp,
-            ]);
 
             throw new AfipAuthorizationException(
                 "Error al autorizar comprobante: {$errorMsg}",
@@ -524,14 +489,10 @@ class WsfeService
         // Verificar resultado del detalle
         $detalleResultado = (string) ($detalle->Resultado ?? '');
         if ($detalleResultado !== 'A') {
+            // Si la cabecera dio A pero el detalle dio R, buscamos observaciones
             $errors = [];
-            if (isset($detalle->Observaciones) && is_array($detalle->Observaciones)) {
-                foreach ($detalle->Observaciones as $obs) {
-                    $errors[] = [
-                        'code' => (string) ($obs->Code ?? ''),
-                        'msg' => (string) ($obs->Msg ?? ''),
-                    ];
-                }
+            if (isset($detalle->Observaciones)) {
+                $errors = $extractMessages($detalle->Observaciones, 'Obs');
             }
 
             $errorMsg = !empty($errors)
@@ -555,15 +516,10 @@ class WsfeService
             throw new AfipAuthorizationException('CAE no encontrado en la respuesta de WSFE');
         }
 
-        // Extraer observaciones si las hay
+        // Extraer observaciones (informativas) si las hay
         $observations = [];
-        if (isset($detalle->Observaciones) && is_array($detalle->Observaciones)) {
-            foreach ($detalle->Observaciones as $obs) {
-                $observations[] = [
-                    'code' => (string) ($obs->Code ?? ''),
-                    'msg' => (string) ($obs->Msg ?? ''),
-                ];
-            }
+        if (isset($detalle->Observaciones)) {
+            $observations = $extractMessages($detalle->Observaciones, 'Obs');
         }
 
         return InvoiceResponse::fromArray([
