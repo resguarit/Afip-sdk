@@ -587,7 +587,9 @@
 
     ## 🐛 Troubleshooting
 
-    ### Error: "CUIT no configurado"
+    ### Errores de Configuración
+
+    #### Error: "CUIT no configurado"
 
     **Solución:**
     ```bash
@@ -598,7 +600,7 @@
     php artisan config:clear
     ```
 
-    ### Error: "Error al cargar clave privada"
+    #### Error: "Error al cargar clave privada"
 
     **Causas posibles:**
     1. Archivo no existe o ruta incorrecta
@@ -617,7 +619,90 @@
     AFIP_CERTIFICATE_PASSWORD=tu_password_correcto
     ```
 
-    ### Error: "Error SOAP al llamar"
+    ### Errores de Certificados
+
+    #### Error: "Certificado no incluido en CMS" (`ns1:cms.cert.notFound`)
+
+    **Causa:** El certificado no se está incluyendo en el mensaje CMS.
+
+    **Solución:** Verifica que el SDK esté actualizado. Este error fue corregido en versiones recientes.
+
+    #### Error: "No se ha encontrado certificado de firmador"
+
+    **Causas posibles:**
+    1. Certificado no activado en ARCA
+    2. Certificado no tiene autorización para WSFE
+    3. Certificado no asociado al alias en ARCA
+    4. Certificado corresponde a otro CUIT
+
+    **Solución:**
+    1. Ve a ARCA (https://www.afip.gob.ar/arqa/)
+    2. Verifica que el certificado esté en estado **"VALIDO"**
+    3. Verifica que exista autorización para el servicio **"wsfe"**
+    4. Si el certificado no está asociado al alias, agrégalo desde ARCA → "Agregar certificado a alias"
+
+    #### Error: "Certificado y clave privada no coinciden"
+
+    **Solución:**
+    ```bash
+    # Verificar coincidencia
+    openssl x509 -noout -modulus -in storage/certificates/certificado.crt | openssl md5
+    openssl rsa -noout -modulus -in storage/certificates/clave_privada.key | openssl md5
+    ```
+    
+    Si los hashes NO coinciden, el certificado y la clave no son del mismo par. Debes usar el par correcto.
+
+    ### Errores de Autenticación
+
+    #### Error 600: "ValidacionDeToken: Error al verificar hash"
+
+    **Causa:** OpenSSL está modificando el XML antes de firmarlo.
+
+    **Solución:** Verifica que el SDK esté actualizado. Este error fue corregido agregando el flag `-binary` a OpenSSL.
+
+    #### Error: "El CEE ya posee un TA valido para el acceso al WSN solicitado"
+
+    **Causa:** AFIP reporta que ya existe un token válido, pero el SDK no lo tiene en cache.
+
+    **Solución:** El SDK maneja esto automáticamente. Si persiste, limpia el cache:
+    ```bash
+    php artisan cache:clear
+    ```
+
+    ### Errores de Autorización
+
+    #### Error 10246: Campo `CondicionIVAReceptorId` faltante
+
+    **Causa:** AFIP requiere obligatoriamente la condición frente al IVA del receptor (RG 5616).
+
+    **Solución:** El SDK asigna automáticamente:
+    - Factura A (tipo 1) → Responsable Inscripto (1)
+    - Factura B (tipo 6) u otra → Consumidor Final (5)
+
+    Puedes especificarlo manualmente:
+    ```php
+    $invoiceData['receiverConditionIVA'] = 1; // 1=RI, 4=Exento, 5=CF, 6=Monotributo
+    ```
+
+    #### Error 10243: Incompatibilidad tipo comprobante/IVA
+
+    **Causa:** Se envió una condición IVA incompatible con el tipo de comprobante.
+
+    **Solución:** El SDK maneja esto automáticamente. Factura A solo acepta Responsable Inscripto (1) o Exento (4).
+
+    #### Error: "Código AFIP: 10015" (Comprobante ya existe)
+
+    **Causa:** Intentaste autorizar un número que ya fue autorizado.
+
+    **Solución:** El SDK automáticamente ajusta el número. Si persiste, verifica manualmente:
+    ```php
+    $lastInvoice = Afip::getLastAuthorizedInvoice(1, 1);
+    echo "Último autorizado: " . $lastInvoice['CbteNro'];
+    ```
+
+    ### Errores de Conexión
+
+    #### Error: "Error SOAP al llamar"
 
     **Causas posibles:**
     1. Problema de conexión a internet
@@ -629,17 +714,6 @@
     - Verificar que los certificados no hayan expirado
     - Revisar logs: `storage/logs/laravel.log`
 
-    ### Error: "Código AFIP: 10015" (Comprobante ya existe)
-
-    **Causa:** Intentaste autorizar un número que ya fue autorizado.
-
-    **Solución:** El SDK automáticamente ajusta el número. Si persiste, verifica manualmente:
-
-    ```php
-    $lastInvoice = Afip::getLastAuthorizedInvoice(1, 1);
-    echo "Último autorizado: " . $lastInvoice['CbteNro'];
-    ```
-
     ### Ver Logs
 
     ```bash
@@ -648,25 +722,34 @@
 
     # Buscar errores de AFIP
     grep -i "afip" storage/logs/laravel.log
+
+    # Ver solo errores
+    grep -i "error.*afip" storage/logs/laravel.log
     ```
+
+    ### Checklist de Verificación
+
+    Antes de reportar un error, verifica:
+
+    - [ ] Certificado (`.crt`) descargado de ARCA
+    - [ ] Clave privada (`.key`) generada localmente (NO descargada)
+    - [ ] Ambos archivos en la ruta configurada
+    - [ ] Permisos correctos (600 para `.key`, 644 para `.crt`)
+    - [ ] Certificado y clave privada coinciden
+    - [ ] CUIT configurado correctamente en `.env`
+    - [ ] Entorno configurado como `testing` (no `production`)
+    - [ ] Certificado activado en ARCA (ambiente Testing)
+    - [ ] Autorización creada para `wsfe` en ARCA
+    - [ ] CUIT del certificado coincide con el configurado
+    - [ ] SDK actualizado a la última versión
 
     ---
 
-## 📚 Documentación Adicional
+## 📚 Referencias Técnicas
 
-### Guías Detalladas
-
-- **[Activar Certificado en ARCA](ACTIVAR_CERTIFICADO_ARCA.md)** 🔐 ⭐ **NUEVO** - Guía paso a paso para activar certificado en ARCA
-- **[Solución: Error de Certificado](SOLUCION_CERTIFICADO.md)** 🔧 - Troubleshooting de problemas con certificados
-- **[Instalación en Proyecto POS](INSTALACION_PROYECTO_POS.md)** 📦 - Guía de instalación en tu proyecto
-- **[Actualizar SDK](ACTUALIZAR_SDK.md)** 🔄 - Cómo actualizar el SDK cuando Composer detecta cambios
-- **[Configurar Certificados](CONFIGURAR_CERTIFICADOS.md)** 🔐 - Guía completa de certificados
-- **[Guía de Pruebas](GUIA_PRUEBAS.md)** 🧪 - Ejemplos y scripts de prueba
-
-    ### Referencias Técnicas
-
-    - [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
-    - [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
+- [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
+- [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
+- [ARCA - Administración de Certificados](https://www.afip.gob.ar/arqa/)
 
     ---
 
