@@ -53,8 +53,9 @@ class CmsHelper
             file_put_contents($tempTraFile, $traXml);
 
             // Generar CMS usando OpenSSL
+            // NOTA: NO usar -nocerts porque AFIP requiere el certificado en el CMS para validarlo
             $command = sprintf(
-                'openssl cms -sign -in %s -out %s -signer %s -inkey %s -outform DER -nodetach -nocerts',
+                'openssl cms -sign -in %s -out %s -signer %s -inkey %s -outform DER -nodetach',
                 escapeshellarg($tempTraFile),
                 escapeshellarg($tempCmsFile),
                 escapeshellarg($certPath),
@@ -124,8 +125,9 @@ class CmsHelper
             file_put_contents($tempKeyFile, $keyContent);
 
             // Generar CMS
+            // NOTA: NO usar -nocerts porque AFIP requiere el certificado en el CMS para validarlo
             $command = sprintf(
-                'openssl cms -sign -in %s -out %s -signer %s -inkey %s -outform DER -nodetach -nocerts',
+                'openssl cms -sign -in %s -out %s -signer %s -inkey %s -outform DER -nodetach',
                 escapeshellarg($tempTraFile),
                 escapeshellarg($tempCmsFile),
                 escapeshellarg($tempCertFile),
