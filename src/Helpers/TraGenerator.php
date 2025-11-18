@@ -144,6 +144,7 @@ class TraGenerator
             $dnParts = [];
             
             // serialNumber - AFIP espera formato OID (2.5.4.5) con valor codificado
+            // IMPORTANTE: Debe ir PRIMERO según el error de AFIP
             if (isset($subject['serialNumber'])) {
                 $serialValue = $subject['serialNumber'];
                 // Codificar el valor en formato DER para el OID
@@ -153,18 +154,26 @@ class TraGenerator
             }
             
             // CN (Common Name) - AFIP espera en minúsculas
+            // IMPORTANTE: Debe ir DESPUÉS del serialNumber
             if (isset($subject['CN'])) {
-                $dnParts[] = 'cn=' . $subject['CN'];
+                $dnParts[] = 'cn=' . strtolower($subject['CN']);
             }
 
-            // Solo agregar O y C si existen en el certificado
-            // (según el error, AFIP no los espera si no están en el certificado)
-            if (isset($subject['O'])) {
+            // NO agregar O y C si no están en el certificado original
+            // El error de AFIP indica que no los espera si no están en el certificado
+            // Solo agregar si realmente existen en el certificado
+            if (isset($subject['O']) && !empty($subject['O'])) {
                 $dnParts[] = 'o=' . strtolower($subject['O']);
             }
             
-            if (isset($subject['C'])) {
+            if (isset($subject['C']) && !empty($subject['C'])) {
                 $dnParts[] = 'c=' . strtolower($subject['C']);
+            }
+
+            // Si no se pudo construir el DN desde el certificado, lanzar excepción
+            // en lugar de usar fallback, para que el error sea más claro
+            if (empty($dnParts)) {
+                throw new \Exception('No se pudo extraer DN del certificado');
             }
 
             return implode(',', $dnParts);
