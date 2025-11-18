@@ -411,16 +411,24 @@ class WsfeService
             if (isset($feCabResp->Errors)) {
                 if (is_array($feCabResp->Errors)) {
                     foreach ($feCabResp->Errors as $error) {
-                        $errors[] = [
-                            'code' => (string) ($error->Code ?? ''),
-                            'msg' => (string) ($error->Msg ?? ''),
-                        ];
+                        $code = trim((string) ($error->Code ?? ''));
+                        $msg = trim((string) ($error->Msg ?? ''));
+                        if ($code !== '' || $msg !== '') {
+                            $errors[] = [
+                                'code' => $code,
+                                'msg' => $msg,
+                            ];
+                        }
                     }
                 } elseif (is_object($feCabResp->Errors)) {
-                    $errors[] = [
-                        'code' => (string) ($feCabResp->Errors->Code ?? ''),
-                        'msg' => (string) ($feCabResp->Errors->Msg ?? ''),
-                    ];
+                    $code = trim((string) ($feCabResp->Errors->Code ?? ''));
+                    $msg = trim((string) ($feCabResp->Errors->Msg ?? ''));
+                    if ($code !== '' || $msg !== '') {
+                        $errors[] = [
+                            'code' => $code,
+                            'msg' => $msg,
+                        ];
+                    }
                 }
             }
             
@@ -433,22 +441,33 @@ class WsfeService
                 if (isset($detalle->Observaciones)) {
                     if (is_array($detalle->Observaciones)) {
                         foreach ($detalle->Observaciones as $obs) {
-                            $errors[] = [
-                                'code' => (string) ($obs->Code ?? ''),
-                                'msg' => (string) ($obs->Msg ?? ''),
-                            ];
+                            $code = trim((string) ($obs->Code ?? ''));
+                            $msg = trim((string) ($obs->Msg ?? ''));
+                            if ($code !== '' || $msg !== '') {
+                                $errors[] = [
+                                    'code' => $code,
+                                    'msg' => $msg,
+                                ];
+                            }
                         }
                     } elseif (is_object($detalle->Observaciones)) {
-                        $errors[] = [
-                            'code' => (string) ($detalle->Observaciones->Code ?? ''),
-                            'msg' => (string) ($detalle->Observaciones->Msg ?? ''),
-                        ];
+                        $code = trim((string) ($detalle->Observaciones->Code ?? ''));
+                        $msg = trim((string) ($detalle->Observaciones->Msg ?? ''));
+                        if ($code !== '' || $msg !== '') {
+                            $errors[] = [
+                                'code' => $code,
+                                'msg' => $msg,
+                            ];
+                        }
                     }
                 }
             }
 
+            // Filtrar errores vacíos y construir mensaje
+            $errors = array_filter($errors, fn($e) => $e['code'] !== '' || $e['msg'] !== '');
+            
             $errorMsg = !empty($errors)
-                ? implode('; ', array_map(fn($e) => "{$e['code']}: {$e['msg']}", $errors))
+                ? implode('; ', array_map(fn($e) => trim("{$e['code']}: {$e['msg']}", ': '), $errors))
                 : "Error desconocido en la respuesta de WSFE (Resultado: {$resultado})";
 
             $this->log('error', 'Error al autorizar comprobante', [
