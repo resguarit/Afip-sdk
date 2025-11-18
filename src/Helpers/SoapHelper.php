@@ -36,6 +36,8 @@ class SoapHelper
                     'verify_peer' => true,
                     'verify_peer_name' => true,
                     'allow_self_signed' => false,
+                    // Opcional: Si se especifica un archivo de certificados CA, usarlo
+                    // 'cafile' => config('afip.ssl.cafile'), // Ruta a certificados CA de AFIP
                 ],
             ]),
         ];

@@ -133,17 +133,40 @@
     - **`AFIPRootCA2.cacert_2015-2035.crt`** - Certificado raíz de AFIP (válido 2015-2035)
     - **`Computadores.cacert_2024-2035.crt`** - Certificado intermedio de Computadores (válido 2024-2035)
 
-    **¿Para qué sirven?**
+    **¿Qué rol cumplen estos certificados?**
     
-    Estos certificados se usan para validar la cadena de certificación de AFIP en producción. Son certificados **públicos** de la Autoridad Certificadora (CA) de AFIP y **SÍ pueden** estar en el repositorio (a diferencia de tus certificados privados).
-
-    **¿Cuándo se usan?**
+    Estos certificados son de la **Autoridad Certificadora (CA) de AFIP**. Su función es:
     
-    - En producción, para validar que los certificados emitidos por AFIP son confiables
-    - Para configurar el cliente SOAP con la cadena de certificación completa
-    - Para evitar errores de validación SSL/TLS al conectarse a los servicios de AFIP
+    1. **Validar SSL/TLS**: Cuando tu aplicación se conecta a los servidores de AFIP (WSAA, WSFE), el servidor presenta su certificado SSL. Estos certificados CA validan que el servidor de AFIP es legítimo y no un impostor.
+    
+    2. **Cadena de confianza**: Forman parte de la cadena de certificación que valida que los certificados de AFIP son confiables.
+    
+    3. **Seguridad**: Previenen ataques "man-in-the-middle" asegurando que te estás comunicando con los servidores reales de AFIP.
 
-    **Nota:** El SDK actualmente no requiere estos certificados explícitamente, pero pueden ser útiles para configuración avanzada o troubleshooting en producción.
+    **¿Dónde deben estar?**
+    
+    - **En tu proyecto (recomendado)**: Copia estos certificados a tu proyecto que usa el SDK (ej: `storage/certificates/afip-ca/`)
+    - **NO en el SDK**: El SDK es una librería compartida; cada proyecto debe tener sus propios certificados CA si los necesita
+    
+    **¿Cuándo se necesitan?**
+    
+    - **Normalmente NO son necesarios**: PHP confía en los certificados CA del sistema operativo, que ya incluyen los de AFIP
+    - **Pueden ser necesarios si**:
+      - Tu servidor tiene una configuración SSL muy estricta
+      - Estás en un entorno aislado sin acceso a certificados CA del sistema
+      - Experimentas errores de validación SSL al conectarte a AFIP en producción
+      - Tu servidor no tiene actualizados los certificados CA del sistema
+    
+    **Cómo usarlos (si es necesario):**
+    
+    ```php
+    // En tu config/afip.php o .env
+    'ssl' => [
+        'cafile' => storage_path('certificates/afip-ca/AFIPRootCA2.cacert_2015-2035.crt'),
+    ],
+    ```
+    
+    **Nota:** El SDK actualmente confía en los certificados CA del sistema operativo. Solo necesitas estos certificados si experimentas problemas de validación SSL en producción.
 
     ### Paso 3: Limpiar Cache
 
