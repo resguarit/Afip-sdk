@@ -87,10 +87,14 @@ class InvoiceMapper
                     $alicuota = 21.0; // Valor por defecto
                 }
                 
+                $baseImp = (float) ($ivaItem['baseAmount'] ?? $ivaItem['baseImponible'] ?? 0);
+                $importe = (float) ($ivaItem['amount'] ?? ($baseImp * $alicuota / 100));
+                
                 $alicIva[] = [
                     'Id' => (int) ($ivaItem['id'] ?? 5),
-                    'BaseImp' => (float) ($ivaItem['baseAmount'] ?? $ivaItem['baseImponible'] ?? 0),
+                    'BaseImp' => $baseImp,
                     'Alic' => $alicuota,
+                    'Importe' => $importe, // Campo requerido por AFIP
                 ];
             }
         }
