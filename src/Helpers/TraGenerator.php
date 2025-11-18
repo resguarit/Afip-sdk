@@ -139,31 +139,32 @@ class TraGenerator
             $subject = $certInfo['subject'];
             
             // Construir DN desde el certificado
-            // El orden debe ser: serialNumber, CN, O, C (según especificación AFIP)
+            // Según el error de AFIP, el formato esperado es:
+            // 2.5.4.5=#<hex_encoded>,cn=<value> (sin O ni C si no están en el certificado)
             $dnParts = [];
             
-            // serialNumber (si existe)
+            // serialNumber - AFIP espera formato OID (2.5.4.5) con valor codificado
             if (isset($subject['serialNumber'])) {
-                $dnParts[] = 'serialNumber=' . $subject['serialNumber'];
+                $serialValue = $subject['serialNumber'];
+                // Codificar el valor en formato DER para el OID
+                // El formato es: 2.5.4.5=#<hex_encoded_value>
+                $encoded = self::encodeDerString($serialValue);
+                $dnParts[] = '2.5.4.5=#' . $encoded;
             }
             
-            // CN (Common Name)
+            // CN (Common Name) - AFIP espera en minúsculas
             if (isset($subject['CN'])) {
-                $dnParts[] = 'CN=' . $subject['CN'];
+                $dnParts[] = 'cn=' . $subject['CN'];
             }
-            
-            // O (Organization) - si no existe en el certificado, usar AFIP
+
+            // Solo agregar O y C si existen en el certificado
+            // (según el error, AFIP no los espera si no están en el certificado)
             if (isset($subject['O'])) {
-                $dnParts[] = 'O=' . $subject['O'];
-            } else {
-                $dnParts[] = 'O=AFIP';
+                $dnParts[] = 'o=' . strtolower($subject['O']);
             }
             
-            // C (Country) - si no existe en el certificado, usar AR
             if (isset($subject['C'])) {
-                $dnParts[] = 'C=' . $subject['C'];
-            } else {
-                $dnParts[] = 'C=AR';
+                $dnParts[] = 'c=' . strtolower($subject['C']);
             }
 
             return implode(',', $dnParts);
@@ -171,6 +172,44 @@ class TraGenerator
             // En caso de error, usar formato estándar
             return 'CN=' . $cuit . ',O=AFIP,C=AR,serialNumber=CUIT ' . $cuit;
         }
+    }
+
+    /**
+     * Codifica un string en formato DER para usar en OID
+     * 
+     * @param string $value Valor a codificar
+     * @return string Valor codificado en hexadecimal
+     */
+    private static function encodeDerString(string $value): string
+    {
+        // Codificar el string en formato DER UTF8String
+        // El formato DER para UTF8String es: 0x0C (tag) + length + value
+        $length = strlen($value);
+        $encoded = '';
+        
+        // Tag para UTF8String
+        $encoded .= '0c';
+        
+        // Longitud (si es menor a 128, usar un byte)
+        if ($length < 128) {
+            $encoded .= sprintf('%02x', $length);
+        } else {
+            // Para longitudes mayores, usar formato largo
+            $lengthBytes = '';
+            $tempLength = $length;
+            while ($tempLength > 0) {
+                $lengthBytes = sprintf('%02x', $tempLength & 0xFF) . $lengthBytes;
+                $tempLength >>= 8;
+            }
+            $encoded .= sprintf('%02x', 0x80 | strlen($lengthBytes)) . $lengthBytes;
+        }
+        
+        // Valor codificado en hexadecimal
+        for ($i = 0; $i < $length; $i++) {
+            $encoded .= sprintf('%02x', ord($value[$i]));
+        }
+        
+        return $encoded;
     }
 }
 
