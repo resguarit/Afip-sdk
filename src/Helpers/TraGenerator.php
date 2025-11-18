@@ -52,10 +52,17 @@ class TraGenerator
         $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
-        $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
+        // generationTime y expirationTime deben estar en formato ISO 8601 estricto
+        // Usar timezone GMT-3 (Argentina) sin espacios
+        $timezone = new \DateTimeZone('America/Argentina/Buenos_Aires');
+        $now = new \DateTime('now', $timezone);
+        $expiration = clone $now;
+        $expiration->modify('+1 day');
+        
+        $generationTime = $dom->createElement('generationTime', $now->format('Y-m-d\TH:i:s.000-03:00'));
         $header->appendChild($generationTime);
 
-        $expirationTime = $dom->createElement('expirationTime', date('Y-m-d\TH:i:s.000-03:00', strtotime('+1 day')));
+        $expirationTime = $dom->createElement('expirationTime', $expiration->format('Y-m-d\TH:i:s.000-03:00'));
         $header->appendChild($expirationTime);
 
         // Service (nombre del servicio)
@@ -102,10 +109,17 @@ class TraGenerator
         $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
-        $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
+        // generationTime y expirationTime deben estar en formato ISO 8601 estricto
+        // Usar timezone GMT-3 (Argentina) sin espacios
+        $timezone = new \DateTimeZone('America/Argentina/Buenos_Aires');
+        $now = new \DateTime('now', $timezone);
+        $expiration = clone $now;
+        $expiration->modify('+1 day');
+        
+        $generationTime = $dom->createElement('generationTime', $now->format('Y-m-d\TH:i:s.000-03:00'));
         $header->appendChild($generationTime);
 
-        $expirationTime = $dom->createElement('expirationTime', date('Y-m-d\TH:i:s.000-03:00', strtotime('+1 day')));
+        $expirationTime = $dom->createElement('expirationTime', $expiration->format('Y-m-d\TH:i:s.000-03:00'));
         $header->appendChild($expirationTime);
 
         $serviceElement = $dom->createElement('service', $service);
