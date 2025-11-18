@@ -25,9 +25,9 @@ class TraGenerator
     public static function generate(string $service, string $cuit, ?string $certPath = null): string
     {
         $dom = new DOMDocument('1.0', 'UTF-8');
-        $dom->formatOutput = true;
+        $dom->formatOutput = false; // Sin formato para evitar espacios extra
 
-        // Elemento raíz
+        // Elemento raíz (sin namespace - el TRA no debe tener namespace cuando se envía como CMS)
         $loginTicketRequest = $dom->createElement('loginTicketRequest');
         $loginTicketRequest->setAttribute('version', '1.0');
         $dom->appendChild($loginTicketRequest);
@@ -44,11 +44,11 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaahomo, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        // Generar uniqueId único combinando timestamp con componente aleatorio
-        // AFIP requiere que cada TRA tenga un uniqueId único, incluso si se generan en el mismo segundo
-        // Usamos timestamp en segundos + milisegundos + número aleatorio para garantizar unicidad
-        $uniqueIdValue = time() * 1000 + (int)(microtime(true) * 1000) % 1000 + mt_rand(0, 999);
-        $uniqueId = $dom->createElement('uniqueId', (string) $uniqueIdValue);
+        // Generar uniqueId único usando timestamp + componente aleatorio
+        // AFIP requiere que cada TRA tenga un uniqueId único
+        // Usamos timestamp en segundos + número aleatorio de 3 dígitos para garantizar unicidad
+        $uniqueIdValue = time() . sprintf('%03d', mt_rand(0, 999));
+        $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
         $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
@@ -75,8 +75,9 @@ class TraGenerator
     public static function generateForProduction(string $service, string $cuit, ?string $certPath = null): string
     {
         $dom = new DOMDocument('1.0', 'UTF-8');
-        $dom->formatOutput = true;
+        $dom->formatOutput = false; // Sin formato para evitar espacios extra
 
+        // Elemento raíz (sin namespace - el TRA no debe tener namespace cuando se envía como CMS)
         $loginTicketRequest = $dom->createElement('loginTicketRequest');
         $loginTicketRequest->setAttribute('version', '1.0');
         $dom->appendChild($loginTicketRequest);
@@ -93,11 +94,11 @@ class TraGenerator
         $destination = $dom->createElement('destination', 'CN=wsaa, O=AFIP, C=AR, SERIALNUMBER=CUIT 33693450239');
         $header->appendChild($destination);
 
-        // Generar uniqueId único combinando timestamp con componente aleatorio
-        // AFIP requiere que cada TRA tenga un uniqueId único, incluso si se generan en el mismo segundo
-        // Usamos timestamp en segundos + milisegundos + número aleatorio para garantizar unicidad
-        $uniqueIdValue = time() * 1000 + (int)(microtime(true) * 1000) % 1000 + mt_rand(0, 999);
-        $uniqueId = $dom->createElement('uniqueId', (string) $uniqueIdValue);
+        // Generar uniqueId único usando timestamp + componente aleatorio
+        // AFIP requiere que cada TRA tenga un uniqueId único
+        // Usamos timestamp en segundos + número aleatorio de 3 dígitos para garantizar unicidad
+        $uniqueIdValue = time() . sprintf('%03d', mt_rand(0, 999));
+        $uniqueId = $dom->createElement('uniqueId', $uniqueIdValue);
         $header->appendChild($uniqueId);
 
         $generationTime = $dom->createElement('generationTime', date('Y-m-d\TH:i:s.000-03:00'));
