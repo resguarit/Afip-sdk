@@ -109,5 +109,152 @@ class AfipService implements AfipServiceInterface
     {
         return $this->wsaaService->isAuthenticated('wsfe', $cuit);
     }
+
+    /**
+     * Diagnostica problemas de autenticación y configuración
+     *
+     * Verifica:
+     * - Configuración (CUIT, entorno, rutas)
+     * - Archivos de certificados (existencia, permisos)
+     * - Validez del certificado (expiración, formato)
+     * - Coincidencia entre certificado y clave privada
+     * - CUIT del certificado vs configurado
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional)
+     * @return array Diagnóstico completo con problemas y sugerencias
+     */
+    public function diagnoseAuthenticationIssue(?string $cuit = null): array
+    {
+        $issues = [];
+        $suggestions = [];
+        $details = [];
+
+        // Resolver CUIT
+        try {
+            $cuit = $cuit ?? config('afip.cuit');
+            if (empty($cuit)) {
+                $issues[] = 'CUIT no configurado';
+                $suggestions[] = 'Configura AFIP_CUIT en tu archivo .env';
+            }
+        } catch (\Exception $e) {
+            $issues[] = 'Error al obtener CUIT: ' . $e->getMessage();
+        }
+
+        $details['cuit_configurado'] = $cuit ?? 'No configurado';
+        $details['entorno'] = config('afip.environment', 'testing');
+
+        // Verificar archivos
+        $filesOk = true;
+        try {
+            $certPath = $this->certificateManager->getCertPath();
+            $keyPath = $this->certificateManager->getKeyPath();
+            $details['cert_path'] = $certPath;
+            $details['key_path'] = $keyPath;
+
+            if (!file_exists($certPath)) {
+                $issues[] = "Certificado no encontrado: {$certPath}";
+                $filesOk = false;
+            }
+
+            if (!file_exists($keyPath)) {
+                $issues[] = "Clave privada no encontrada: {$keyPath}";
+                $filesOk = false;
+            }
+
+            // Verificar permisos
+            if (file_exists($keyPath)) {
+                $perms = substr(sprintf('%o', fileperms($keyPath)), -4);
+                if ($perms !== '0600' && $perms !== '0400') {
+                    $suggestions[] = "Permisos de clave privada recomendados: 600 (actual: {$perms})";
+                }
+            }
+        } catch (\Exception $e) {
+            $issues[] = 'Error al verificar archivos: ' . $e->getMessage();
+            $filesOk = false;
+        }
+
+        // Verificar certificado
+        $certificateValid = false;
+        $certificateMatchesKey = false;
+
+        try {
+            $certPath = $this->certificateManager->getCertPath();
+            $keyPath = $this->certificateManager->getKeyPath();
+
+            if (file_exists($certPath) && file_exists($keyPath)) {
+                $certContent = file_get_contents($certPath);
+                $certInfo = openssl_x509_parse($certContent);
+
+                if ($certInfo === false) {
+                    $issues[] = 'El certificado no es válido o está corrupto';
+                } else {
+                    $certificateValid = true;
+
+                    // Verificar expiración
+                    $validTo = $certInfo['validTo_time_t'] ?? null;
+                    if ($validTo !== null) {
+                        $details['certificate_expires'] = date('Y-m-d H:i:s', $validTo);
+                        if (time() > $validTo) {
+                            $issues[] = 'El certificado ha expirado';
+                            $suggestions[] = 'Genera un nuevo certificado desde ARCA';
+                        }
+                    }
+
+                    // Verificar coincidencia con clave privada
+                    $keyContent = file_get_contents($keyPath);
+                    $password = config('afip.certificates.password');
+                    $privateKey = openssl_pkey_get_private($keyContent, $password);
+
+                    if ($privateKey !== false) {
+                        $certificateMatchesKey = openssl_x509_check_private_key($certContent, $privateKey);
+                        openssl_free_key($privateKey);
+
+                        if (!$certificateMatchesKey) {
+                            $issues[] = 'El certificado y la clave privada no coinciden';
+                            $suggestions[] = 'Asegúrate de descargar ambos archivos juntos desde ARCA';
+                        }
+                    }
+
+                    // Extraer CUIT del certificado
+                    $subject = $certInfo['subject'] ?? [];
+                    $certCuit = null;
+
+                    if (isset($subject['serialNumber'])) {
+                        if (preg_match('/CUIT\s*(\d{11})/i', $subject['serialNumber'], $matches)) {
+                            $certCuit = $matches[1];
+                        }
+                    }
+
+                    if ($certCuit && $cuit) {
+                        $cleanedCert = preg_replace('/[^0-9]/', '', $certCuit);
+                        $cleanedConfig = preg_replace('/[^0-9]/', '', $cuit);
+                        $details['certificate_cuit'] = $certCuit;
+
+                        if ($cleanedCert !== $cleanedConfig) {
+                            $issues[] = "El CUIT del certificado ({$certCuit}) no coincide con el configurado ({$cuit})";
+                            $suggestions[] = 'Verifica que estés usando el certificado correcto para este CUIT';
+                        }
+                    }
+
+                    $details['certificate_subject'] = $subject;
+                }
+            }
+        } catch (\Exception $e) {
+            $issues[] = 'Error al validar certificado: ' . $e->getMessage();
+        }
+
+        // Verificar configuración
+        $configOk = !empty($cuit) && !empty($details['entorno']);
+
+        return [
+            'config_ok' => $configOk,
+            'files_ok' => $filesOk,
+            'certificate_valid' => $certificateValid,
+            'certificate_matches_key' => $certificateMatchesKey,
+            'issues' => $issues,
+            'suggestions' => $suggestions,
+            'details' => $details,
+        ];
+    }
 }
 

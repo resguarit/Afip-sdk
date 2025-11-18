@@ -16,6 +16,7 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
  * @method static array getPointOfSales()
  * @method static array getTaxpayerStatus(string $cuit)
  * @method static bool isAuthenticated(?string $cuit = null)
+ * @method static array diagnoseAuthenticationIssue(?string $cuit = null)
  *
  * @see \Resguar\AfipSdk\Services\AfipService
  */

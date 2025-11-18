@@ -62,5 +62,13 @@ interface AfipServiceInterface
      * @return bool
      */
     public function isAuthenticated(?string $cuit = null): bool;
+
+    /**
+     * Diagnostica problemas de autenticación y configuración
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional)
+     * @return array Diagnóstico completo con problemas y sugerencias
+     */
+    public function diagnoseAuthenticationIssue(?string $cuit = null): array;
 }
 

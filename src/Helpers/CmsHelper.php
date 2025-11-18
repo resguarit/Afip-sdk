@@ -40,6 +40,9 @@ class CmsHelper
             throw new AfipException("Clave privada no encontrada: {$keyPath}");
         }
 
+        // Validar certificado antes de firmar
+        self::validateCertificateBeforeSigning($certPath, $keyPath, config('afip.cuit'));
+
         // Crear archivos temporales
         $tempDir = sys_get_temp_dir();
         $tempTraFile = $tempDir . DIRECTORY_SEPARATOR . 'tra_' . uniqid() . '.xml';
@@ -157,6 +160,146 @@ class CmsHelper
                 @unlink($tempCmsFile);
             }
         }
+    }
+
+    /**
+     * Valida el certificado antes de firmar
+     *
+     * Verifica:
+     * - Que el certificado no haya expirado
+     * - Que el certificado y la clave privada coincidan
+     * - (Opcional) Que el CUIT del certificado coincida con el configurado
+     *
+     * @param string $certPath Ruta al certificado
+     * @param string $keyPath Ruta a la clave privada
+     * @param string|null $expectedCuit CUIT esperado (opcional)
+     * @return void
+     * @throws AfipException Si hay problemas con el certificado
+     */
+    private static function validateCertificateBeforeSigning(
+        string $certPath,
+        string $keyPath,
+        ?string $expectedCuit = null
+    ): void {
+        // Leer certificado
+        $certContent = file_get_contents($certPath);
+        if ($certContent === false) {
+            throw new AfipException("No se pudo leer el certificado: {$certPath}");
+        }
+
+        // Parsear certificado
+        $certInfo = openssl_x509_parse($certContent);
+        if ($certInfo === false) {
+            throw new AfipException("El certificado no es válido o está corrupto: {$certPath}");
+        }
+
+        // 1. Verificar que el certificado no haya expirado
+        $validTo = $certInfo['validTo_time_t'] ?? null;
+        if ($validTo !== null) {
+            $now = time();
+            if ($now > $validTo) {
+                $expirationDate = date('Y-m-d H:i:s', $validTo);
+                throw new AfipException(
+                    "El certificado expiró el {$expirationDate}. " .
+                    "Genera y descarga un nuevo certificado desde ARCA."
+                );
+            }
+        }
+
+        // 2. Verificar que el certificado y la clave privada coincidan
+        $keyContent = file_get_contents($keyPath);
+        if ($keyContent === false) {
+            throw new AfipException("No se pudo leer la clave privada: {$keyPath}");
+        }
+
+        $password = config('afip.certificates.password');
+        $privateKey = openssl_pkey_get_private($keyContent, $password);
+        if ($privateKey === false) {
+            throw new AfipException(
+                "Error al cargar la clave privada. " .
+                "Verifica que la contraseña sea correcta o que el archivo no esté corrupto."
+            );
+        }
+
+        $keyDetails = openssl_pkey_get_details($privateKey);
+        $certPublicKey = openssl_pkey_get_public($certContent);
+        
+        if ($certPublicKey === false) {
+            openssl_free_key($privateKey);
+            throw new AfipException("No se pudo extraer la clave pública del certificado.");
+        }
+
+        $certKeyDetails = openssl_pkey_get_details($certPublicKey);
+        
+        // Comparar módulos (RSA) o parámetros (EC)
+        $keyMatches = false;
+        if (isset($keyDetails['rsa']['n']) && isset($certKeyDetails['rsa']['n'])) {
+            // Comparar módulo RSA
+            $keyMatches = ($keyDetails['rsa']['n'] === $certKeyDetails['rsa']['n']);
+        } elseif (isset($keyDetails['ec']) && isset($certKeyDetails['ec'])) {
+            // Comparar parámetros EC
+            $keyMatches = ($keyDetails['ec'] === $certKeyDetails['ec']);
+        } else {
+            // Si no podemos comparar, intentar verificar con openssl_x509_check_private_key
+            $keyMatches = openssl_x509_check_private_key($certContent, $privateKey);
+        }
+
+        openssl_free_key($privateKey);
+        openssl_free_key($certPublicKey);
+
+        if (!$keyMatches) {
+            throw new AfipException(
+                "El certificado y la clave privada no coinciden. " .
+                "Verifica que sean del mismo par de claves generado en ARCA."
+            );
+        }
+
+        // 3. (Opcional) Verificar que el CUIT del certificado coincida con el configurado
+        if ($expectedCuit !== null && !empty($expectedCuit)) {
+            $certCuit = self::extractCuitFromCertificate($certInfo);
+            if ($certCuit !== null) {
+                $cleanedExpected = preg_replace('/[^0-9]/', '', $expectedCuit);
+                $cleanedCert = preg_replace('/[^0-9]/', '', $certCuit);
+                
+                if ($cleanedExpected !== $cleanedCert) {
+                    // Solo log warning, no lanzar excepción (puede ser válido en algunos casos)
+                    \Log::warning('El CUIT del certificado no coincide con el configurado', [
+                        'cuit_configurado' => $cleanedExpected,
+                        'cuit_certificado' => $cleanedCert,
+                        'cert_path' => $certPath,
+                    ]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Extrae el CUIT del certificado desde el subject
+     *
+     * @param array $certInfo Información del certificado parseado
+     * @return string|null CUIT extraído o null si no se encuentra
+     */
+    private static function extractCuitFromCertificate(array $certInfo): ?string
+    {
+        $subject = $certInfo['subject'] ?? [];
+        
+        // Buscar en serialNumber (formato: "CUIT 20457809027")
+        if (isset($subject['serialNumber'])) {
+            $serialNumber = $subject['serialNumber'];
+            if (preg_match('/CUIT\s*(\d{11})/i', $serialNumber, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        // Buscar en CN (formato: "CN=20457809027, O=...")
+        if (isset($subject['CN'])) {
+            $cn = $subject['CN'];
+            if (preg_match('/(\d{11})/', $cn, $matches)) {
+                return $matches[1];
+            }
+        }
+
+        return null;
     }
 }
 

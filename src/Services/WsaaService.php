@@ -65,6 +65,36 @@ class WsaaService
         $this->log('info', "Generando nuevo token para servicio: {$service}, CUIT: {$cuit}");
 
         try {
+            // Log información del certificado para debugging
+            try {
+                $certPath = $this->certificateManager->getCertPath();
+                $certContent = file_get_contents($certPath);
+                if ($certContent !== false) {
+                    $certInfo = openssl_x509_parse($certContent);
+                    if ($certInfo !== false) {
+                        $validFrom = isset($certInfo['validFrom_time_t']) 
+                            ? date('Y-m-d H:i:s', $certInfo['validFrom_time_t']) 
+                            : null;
+                        $validTo = isset($certInfo['validTo_time_t']) 
+                            ? date('Y-m-d H:i:s', $certInfo['validTo_time_t']) 
+                            : null;
+                        
+                        $this->log('debug', 'Información del certificado', [
+                            'subject' => $certInfo['subject'] ?? null,
+                            'issuer' => $certInfo['issuer'] ?? null,
+                            'valid_from' => $validFrom,
+                            'valid_to' => $validTo,
+                            'cuit_configurado' => $cuit,
+                            'entorno' => $this->environment,
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                // No fallar si no se puede leer el certificado, solo log
+                $this->log('warning', 'No se pudo leer información del certificado para logging', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             // 2. Generar TRA (Ticket de Requerimiento de Acceso)
             $this->log('debug', 'Generando TRA XML');
@@ -81,6 +111,11 @@ class WsaaService
                 $this->certificateManager->getKeyPath(),
                 $password
             );
+            
+            $this->log('debug', 'CMS generado exitosamente', [
+                'cms_length' => strlen($cms),
+                'cms_preview' => substr($cms, 0, 50) . '...',
+            ]);
 
             // 4. Enviar a WSAA vía SOAP
             $this->log('debug', 'Enviando solicitud a WSAA');
@@ -274,15 +309,42 @@ class WsaaService
 
             return $response;
         } catch (SoapFault $e) {
+            // Obtener información del certificado para debugging
+            $certPath = $this->certificateManager->getCertPath();
+            $keyPath = $this->certificateManager->getKeyPath();
+            $certInfo = null;
+            $certExpiration = null;
+            
+            try {
+                $certContent = file_get_contents($certPath);
+                if ($certContent !== false) {
+                    $certInfo = openssl_x509_parse($certContent);
+                    if ($certInfo !== false && isset($certInfo['validTo_time_t'])) {
+                        $certExpiration = date('Y-m-d H:i:s', $certInfo['validTo_time_t']);
+                    }
+                }
+            } catch (\Exception $certError) {
+                // Ignorar errores al leer certificado para logging
+            }
+
             $this->log('error', 'Error SOAP al comunicarse con WSAA', [
                 'message' => $e->getMessage(),
                 'code' => $e->getCode(),
                 'faultcode' => $e->faultcode ?? null,
                 'faultstring' => $e->faultstring ?? null,
+                'cuit' => config('afip.cuit'),
+                'environment' => $this->environment,
+                'cert_path' => $certPath,
+                'key_path' => $keyPath,
+                'cert_expiration' => $certExpiration,
+                'cert_subject' => $certInfo['subject'] ?? null,
             ]);
 
+            // Analizar el error y proporcionar mensaje más descriptivo
+            $errorMessage = $this->parseCertificateError($e, $certPath, $keyPath, $certExpiration);
+
             throw new AfipAuthenticationException(
-                "Error al comunicarse con WSAA: {$e->getMessage()}",
+                $errorMessage,
                 (int) $e->getCode(),
                 $e,
                 $e->faultcode ?? null,
@@ -300,6 +362,120 @@ class WsaaService
                 $e
             );
         }
+    }
+
+    /**
+     * Analiza errores de certificado y genera mensajes descriptivos con sugerencias
+     *
+     * @param SoapFault $e Excepción SOAP recibida
+     * @param string $certPath Ruta al certificado
+     * @param string $keyPath Ruta a la clave privada
+     * @param string|null $certExpiration Fecha de expiración del certificado
+     * @return string Mensaje descriptivo con sugerencias
+     */
+    protected function parseCertificateError(
+        SoapFault $e,
+        string $certPath,
+        string $keyPath,
+        ?string $certExpiration = null
+    ): string {
+        $message = strtolower($e->getMessage());
+        $faultstring = strtolower($e->faultstring ?? '');
+        $combinedMessage = $message . ' ' . $faultstring;
+
+        $cuit = config('afip.cuit');
+        $environment = $this->environment;
+        $environmentName = $environment === 'production' ? 'producción' : 'homologación';
+        $arcaUrl = $environment === 'production' 
+            ? 'https://www.afip.gob.ar/arqa/' 
+            : 'https://www.afip.gob.ar/arqa/';
+
+        // Detectar tipo de error
+        $isCertificateNotFound = (
+            str_contains($combinedMessage, 'certificado de firmador') ||
+            str_contains($combinedMessage, 'certificate signer') ||
+            str_contains($combinedMessage, 'signer certificate') ||
+            str_contains($combinedMessage, 'certificado no encontrado') ||
+            str_contains($combinedMessage, 'certificate not found')
+        );
+
+        $isExpired = (
+            str_contains($combinedMessage, 'certificado expirado') ||
+            str_contains($combinedMessage, 'expired') ||
+            str_contains($combinedMessage, 'vencido')
+        );
+
+        $isInvalid = (
+            str_contains($combinedMessage, 'certificado no válido') ||
+            str_contains($combinedMessage, 'invalid certificate') ||
+            str_contains($combinedMessage, 'certificado inválido')
+        );
+
+        // Construir mensaje según el tipo de error
+        $errorMessage = "Error de autenticación con AFIP:\n\n";
+
+        if ($isCertificateNotFound) {
+            $errorMessage .= "❌ El certificado no está registrado o activado en AFIP para este CUIT y entorno.\n\n";
+            $errorMessage .= "📋 Verifica:\n";
+            $errorMessage .= "1. Que el certificado esté activado en ARCA ({$environmentName})\n";
+            $errorMessage .= "   → Accede a: {$arcaUrl}\n";
+            $errorMessage .= "   → Ve a: Certificados → Activar certificado\n\n";
+            $errorMessage .= "2. Que el CUIT configurado ({$cuit}) coincida con el CUIT del certificado\n";
+            $errorMessage .= "   → Verifica en ARCA que el certificado corresponda a este CUIT\n\n";
+            $errorMessage .= "3. Que estés usando el entorno correcto\n";
+            $errorMessage .= "   → Entorno actual: {$environment} ({$environmentName})\n";
+            $errorMessage .= "   → El certificado debe estar activado en el mismo entorno\n\n";
+            $errorMessage .= "4. Que el certificado no haya expirado\n";
+            if ($certExpiration !== null) {
+                $errorMessage .= "   → Certificado válido hasta: {$certExpiration}\n";
+            }
+            $errorMessage .= "\n";
+        } elseif ($isExpired) {
+            $errorMessage .= "❌ El certificado ha expirado.\n\n";
+            if ($certExpiration !== null) {
+                $errorMessage .= "   Fecha de expiración: {$certExpiration}\n\n";
+            }
+            $errorMessage .= "📋 Solución:\n";
+            $errorMessage .= "1. Genera un nuevo certificado desde ARCA\n";
+            $errorMessage .= "   → Accede a: {$arcaUrl}\n";
+            $errorMessage .= "   → Ve a: Certificados → Generar nuevo certificado\n";
+            $errorMessage .= "2. Descarga el nuevo certificado y la clave privada\n";
+            $errorMessage .= "3. Reemplaza los archivos en: {$certPath}\n\n";
+        } elseif ($isInvalid) {
+            $errorMessage .= "❌ El certificado no es válido o no corresponde al CUIT configurado.\n\n";
+            $errorMessage .= "📋 Verifica:\n";
+            $errorMessage .= "1. Que el certificado corresponda al CUIT configurado ({$cuit})\n";
+            $errorMessage .= "2. Que el certificado no esté corrupto\n";
+            $errorMessage .= "3. Que el certificado y la clave privada sean del mismo par de claves\n";
+            $errorMessage .= "   → Ambos deben descargarse juntos desde ARCA\n\n";
+        } else {
+            // Error genérico
+            $errorMessage .= "❌ Error al comunicarse con WSAA de AFIP.\n\n";
+            $errorMessage .= "Mensaje original: {$e->getMessage()}\n\n";
+            $errorMessage .= "📋 Verifica:\n";
+            $errorMessage .= "1. Que los certificados estén correctos\n";
+            $errorMessage .= "2. Que el CUIT esté configurado correctamente\n";
+            $errorMessage .= "3. Que estés usando el entorno correcto (testing/production)\n";
+            $errorMessage .= "4. Que tengas conexión a internet\n\n";
+        }
+
+        // Agregar información de debugging
+        $errorMessage .= "🔍 Información de debugging:\n";
+        $errorMessage .= "   - CUIT configurado: {$cuit}\n";
+        $errorMessage .= "   - Entorno: {$environment} ({$environmentName})\n";
+        $errorMessage .= "   - Ruta certificado: {$certPath}\n";
+        $errorMessage .= "   - Ruta clave privada: {$keyPath}\n";
+        if ($certExpiration !== null) {
+            $errorMessage .= "   - Certificado válido hasta: {$certExpiration}\n";
+        }
+        if (isset($e->faultcode)) {
+            $errorMessage .= "   - Código de error AFIP: {$e->faultcode}\n";
+        }
+        if (isset($e->faultstring)) {
+            $errorMessage .= "   - Mensaje AFIP: {$e->faultstring}\n";
+        }
+
+        return $errorMessage;
     }
 
     /**
