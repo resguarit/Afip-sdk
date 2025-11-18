@@ -103,10 +103,15 @@ class InvoiceMapper
         if (empty($alicIva) && !empty($invoice['items']) && is_array($invoice['items'])) {
             foreach ($invoice['items'] as $item) {
                 if (isset($item['taxRate']) && $item['taxRate'] > 0) {
+                    $baseImp = (float) ($item['baseImponible'] ?? ($item['quantity'] * $item['unitPrice']));
+                    $alicuota = (float) ($item['taxRate'] ?? 21);
+                    $importe = (float) ($item['taxAmount'] ?? ($baseImp * $alicuota / 100));
+                    
                     $alicIva[] = [
                         'Id' => (int) ($item['taxId'] ?? 5), // 5 = IVA 21%
-                        'BaseImp' => (float) ($item['baseImponible'] ?? ($item['quantity'] * $item['unitPrice'])),
-                        'Alic' => (float) ($item['taxRate'] ?? 21),
+                        'BaseImp' => $baseImp,
+                        'Alic' => $alicuota,
+                        'Importe' => $importe, // Campo requerido por AFIP
                     ];
                 }
             }
