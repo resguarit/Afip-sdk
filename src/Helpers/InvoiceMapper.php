@@ -39,6 +39,9 @@ class InvoiceMapper
             'Concepto' => (int) ($invoice['concept'] ?? 1),
             'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
             'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? '0'),
+            // Campo obligatorio por RG 5616: Condición frente al IVA del receptor
+            // 1=IVA Resp. Inscripto, 4=Exento, 5=Consumidor Final, 6=Monotributo
+            'CondicionIVAReceptorId' => (int) ($invoice['receiverConditionIVA'] ?? $invoice['condicionIVAReceptorId'] ?? 5),
             'CbteDesde' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
@@ -50,8 +53,6 @@ class InvoiceMapper
             'ImpTrib' => (float) $totalTributos,
             'MonId' => $invoice['moneda'] ?? 'PES',
             'MonCotiz' => (float) ($invoice['cotizacionMoneda'] ?? 1),
-            // Campo obligatorio según Resolución General Nro 5616
-            'Iva' => (int) ($invoice['customerIvaCondition'] ?? $invoice['condicionFrenteIva'] ?? $invoice['ivaCondition'] ?? 5), // 5 = Responsable Monotributo por defecto
         ];
 
         // Agregar campos opcionales solo si tienen valor (SOAP no acepta null)
