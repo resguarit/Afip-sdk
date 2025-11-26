@@ -82,6 +82,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cache de Parámetros de WSFE (Tipos de Comprobante, Puntos de Venta)
+    |--------------------------------------------------------------------------
+    |
+    | Estos parámetros no cambian frecuentemente, por lo que se pueden cachear
+    | por CUIT y entorno para mejorar el rendimiento.
+    |
+    */
+
+    'param_cache' => [
+        'enabled' => env('AFIP_PARAM_CACHE_ENABLED', true),
+        // TTL en segundos (por defecto 6 horas)
+        'ttl' => env('AFIP_PARAM_CACHE_TTL', 21600),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Configuración de Reintentos
     |--------------------------------------------------------------------------
     |

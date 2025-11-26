@@ -61,7 +61,8 @@ class AfipServiceProvider extends ServiceProvider
                 $app->make(CertificateManager::class),
                 $app->make(WsaaService::class),
                 $environment,
-                $wsfeUrl
+                $wsfeUrl,
+                $app->make('cache.store')
             );
         });
 

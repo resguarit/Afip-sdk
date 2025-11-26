@@ -68,23 +68,25 @@ class AfipService implements AfipServiceInterface
     /**
      * Obtiene los tipos de comprobantes disponibles
      *
-     * @return array Lista de tipos de comprobantes
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Lista de tipos de comprobantes normalizada
      * @throws AfipException
      */
-    public function getInvoiceTypes(): array
+    public function getAvailableReceiptTypes(?string $cuit = null): array
     {
-        return $this->wsfeService->getInvoiceTypes();
+        return $this->wsfeService->getAvailableReceiptTypes($cuit);
     }
 
     /**
      * Obtiene los puntos de venta habilitados
      *
-     * @return array Lista de puntos de venta
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Lista de puntos de venta normalizada
      * @throws AfipException
      */
-    public function getPointOfSales(): array
+    public function getAvailablePointsOfSale(?string $cuit = null): array
     {
-        return $this->wsfeService->getPointOfSales();
+        return $this->wsfeService->getAvailablePointsOfSale($cuit);
     }
 
     /**
@@ -97,6 +99,17 @@ class AfipService implements AfipServiceInterface
     public function getTaxpayerStatus(string $cuit): array
     {
         return $this->wsfeService->getTaxpayerStatus($cuit);
+    }
+
+    /**
+     * Limpia el cache de parámetros de WSFE (tipos de comprobante, puntos de venta)
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional, si es null no hace nada específico)
+     * @return void
+     */
+    public function clearParamCache(?string $cuit = null): void
+    {
+        $this->wsfeService->clearParamCache($cuit);
     }
 
     /**

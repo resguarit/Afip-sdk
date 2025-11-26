@@ -12,11 +12,12 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
  *
  * @method static \Resguar\AfipSdk\DTOs\InvoiceResponse authorizeInvoice(mixed $source, ?string $cuit = null)
  * @method static array getLastAuthorizedInvoice(int $pointOfSale, int $invoiceType, ?string $cuit = null)
- * @method static array getInvoiceTypes()
- * @method static array getPointOfSales()
+ * @method static array getAvailableReceiptTypes(?string $cuit = null)
+ * @method static array getAvailablePointsOfSale(?string $cuit = null)
  * @method static array getTaxpayerStatus(string $cuit)
  * @method static bool isAuthenticated(?string $cuit = null)
  * @method static array diagnoseAuthenticationIssue(?string $cuit = null)
+ * @method static void clearParamCache(?string $cuit = null)
  *
  * @see \Resguar\AfipSdk\Services\AfipService
  */
