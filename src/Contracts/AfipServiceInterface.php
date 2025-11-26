@@ -47,6 +47,24 @@ interface AfipServiceInterface
     public function getPointOfSales(): array;
 
     /**
+     * Obtiene los tipos de comprobantes habilitados para un CUIT
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Lista de tipos de comprobantes normalizada
+     * @throws \Resguar\AfipSdk\Exceptions\AfipException
+     */
+    public function getAvailableReceiptTypes(?string $cuit = null): array;
+
+    /**
+     * Obtiene los puntos de venta habilitados para un CUIT
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Lista de puntos de venta normalizada
+     * @throws \Resguar\AfipSdk\Exceptions\AfipException
+     */
+    public function getAvailablePointsOfSale(?string $cuit = null): array;
+
+    /**
      * Obtiene el estado del contribuyente
      *
      * @param string $cuit CUIT del contribuyente

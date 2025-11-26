@@ -66,7 +66,20 @@ class AfipService implements AfipServiceInterface
     }
 
     /**
-     * Obtiene los tipos de comprobantes disponibles
+     * Obtiene los tipos de comprobantes disponibles (compatibilidad hacia atrás)
+     *
+     * @return array Lista de tipos de comprobantes
+     * @throws AfipException
+     */
+    public function getInvoiceTypes(): array
+    {
+        // Mantener compatibilidad con la interfaz antigua.
+        // Se devuelve la lista para el CUIT por defecto configurado.
+        return $this->getAvailableReceiptTypes(null);
+    }
+
+    /**
+     * Obtiene los tipos de comprobantes habilitados para un CUIT
      *
      * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return array Lista de tipos de comprobantes normalizada
@@ -78,7 +91,20 @@ class AfipService implements AfipServiceInterface
     }
 
     /**
-     * Obtiene los puntos de venta habilitados
+     * Obtiene los puntos de venta habilitados (compatibilidad hacia atrás)
+     *
+     * @return array Lista de puntos de venta
+     * @throws AfipException
+     */
+    public function getPointOfSales(): array
+    {
+        // Mantener compatibilidad con la interfaz antigua.
+        // Se devuelve la lista para el CUIT por defecto configurado.
+        return $this->getAvailablePointsOfSale(null);
+    }
+
+    /**
+     * Obtiene los puntos de venta habilitados para un CUIT
      *
      * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
      * @return array Lista de puntos de venta normalizada
