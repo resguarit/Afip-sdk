@@ -127,5 +127,16 @@ class ValidatorHelper
 
         return $cleaned;
     }
+
+    /**
+     * Verifica si un CUIT es válido (alias de validateCuit para consistencia de nomenclatura)
+     *
+     * @param string $cuit CUIT a validar (puede tener guiones)
+     * @return bool True si el CUIT es válido
+     */
+    public static function isValidCuit(string $cuit): bool
+    {
+        return self::validateCuit($cuit);
+    }
 }
 
