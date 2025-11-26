@@ -615,16 +615,50 @@ class WsfeService
             ? $soapResponse->FEParamGetPtosVentaResult
             : $soapResponse;
 
-        if (!isset($response->ResultGet)) {
-            throw new AfipException('Respuesta inválida de WSFE al obtener puntos de venta: falta ResultGet');
+        // Log de respuesta (solo en modo debug)
+        if (config('app.debug', false)) {
+            $this->log('debug', 'Respuesta RAW de FEParamGetPtosVenta', [
+                'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR),
+            ]);
         }
 
-        $resultGet = $response->ResultGet;
-        $items = $resultGet->PtoVenta ?? [];
+        // Si AFIP devuelve errores en lugar de ResultGet, reportarlos claramente
+        if (isset($response->Errors)) {
+            $errors = $response->Errors;
+            if (is_object($errors) && isset($errors->Err)) {
+                $errors = $errors->Err;
+            }
+            if (!is_array($errors)) {
+                $errors = [$errors];
+            }
+
+            $messages = [];
+            foreach ($errors as $err) {
+                $code = trim((string) ($err->Code ?? ''));
+                $msg = trim((string) ($err->Msg ?? ''));
+                if ($code !== '' || $msg !== '') {
+                    $messages[] = "{$code}: {$msg}";
+                }
+            }
+
+            if (!empty($messages)) {
+                $msg = implode('; ', $messages);
+                throw new AfipException("Error de AFIP al obtener puntos de venta: {$msg}");
+            }
+        }
+
+        // AFIP normalmente envía ResultGet->PtoVenta, pero si no está, intentamos usar PtoVenta directo
+        if (isset($response->ResultGet)) {
+            $resultGet = $response->ResultGet;
+            $items = $resultGet->PtoVenta ?? [];
+        } else {
+            $items = $response->PtoVenta ?? [];
+        }
 
         if (is_object($items)) {
             $items = [$items];
         } elseif (!is_array($items)) {
+            // Si no hay estructura de puntos de venta reconocible, devolver lista vacía
             $items = [];
         }
 
