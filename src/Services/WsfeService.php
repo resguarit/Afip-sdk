@@ -340,30 +340,60 @@ class WsfeService
     /**
      * Obtiene los tipos de comprobantes habilitados para un CUIT (FEParamGetTiposCbte)
      *
+     * Consulta a AFIP los tipos de comprobantes (facturas, notas de crédito, etc.) que el
+     * contribuyente está habilitado a emitir. Los resultados se cachean automáticamente.
+     *
      * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
-     * @return array Lista normalizada de tipos de comprobantes
-     * @throws AfipException
+     * @return array Lista normalizada de tipos de comprobantes con formato:
+     *               [
+     *                   'id' => int,
+     *                   'code' => int,
+     *                   'description' => string,
+     *                   'from' => string|null (ISO date),
+     *                   'to' => string|null (ISO date)
+     *               ]
+     * @throws AfipException Si hay error en la comunicación o respuesta inválida
      */
     public function getAvailableReceiptTypes(?string $cuit = null): array
     {
+        $startTime = microtime(true);
         $cuit = $this->resolveCuit($cuit);
+
+        $this->log('info', 'Obteniendo tipos de comprobantes disponibles', [
+            'cuit' => $cuit,
+            'environment' => $this->environment,
+        ]);
+
+        // Validar CUIT
+        if (!ValidatorHelper::isValidCuit($cuit)) {
+            throw new AfipException("CUIT inválido: {$cuit}");
+        }
 
         // Clave de cache por entorno + CUIT
         $cacheKey = $this->buildParamCacheKey('cbte_types', $cuit);
         $ttl = (int) config('afip.param_cache.ttl', 21600); // 6 horas por defecto
 
+        // Intentar obtener desde cache
         if ($this->cache && config('afip.param_cache.enabled', true)) {
             $cached = $this->cache->get($cacheKey);
             if (is_array($cached)) {
+                $elapsed = round((microtime(true) - $startTime) * 1000, 2);
+                $this->log('debug', 'Tipos de comprobantes obtenidos desde cache', [
+                    'cuit' => $cuit,
+                    'count' => count($cached),
+                    'elapsed_ms' => $elapsed,
+                ]);
                 return $cached;
             }
         }
 
         try {
             // 1. Obtener token y firma de WSAA (con CUIT específico)
+            $this->log('debug', 'Obteniendo autenticación de WSAA', ['cuit' => $cuit]);
             $auth = $this->wsaaService->getTokenAndSignature('wsfe', $cuit);
 
             // 2. Crear cliente SOAP
+            $this->log('debug', 'Creando cliente SOAP para WSFE', ['url' => $this->url]);
             $client = SoapHelper::createClient($this->url);
 
             // 3. Preparar parámetros para FEParamGetTiposCbte
@@ -376,6 +406,9 @@ class WsfeService
             ];
 
             // 4. Llamar método FEParamGetTiposCbte
+            $this->log('debug', 'Llamando FEParamGetTiposCbte', ['cuit' => $cuit]);
+            $callStart = microtime(true);
+            
             $soapResponse = SoapHelper::call(
                 $client,
                 'FEParamGetTiposCbte',
@@ -383,21 +416,52 @@ class WsfeService
                 config('afip.retry.max_attempts', 3)
             );
 
+            $callElapsed = round((microtime(true) - $callStart) * 1000, 2);
+            $this->log('debug', 'Respuesta recibida de FEParamGetTiposCbte', [
+                'elapsed_ms' => $callElapsed,
+            ]);
+
             // 5. Procesar respuesta
             $normalized = $this->parseReceiptTypesResponse($soapResponse);
 
-            // 6. Guardar en cache
+            // 6. Validar que se obtuvieron resultados
+            if (empty($normalized)) {
+                $this->log('warning', 'AFIP no devolvió tipos de comprobantes para el CUIT', [
+                    'cuit' => $cuit,
+                ]);
+            }
+
+            // 7. Guardar en cache
             if ($this->cache && config('afip.param_cache.enabled', true)) {
                 $this->cache->put($cacheKey, $normalized, $ttl);
+                $this->log('debug', 'Tipos de comprobantes almacenados en cache', [
+                    'key' => $cacheKey,
+                    'ttl_seconds' => $ttl,
+                ]);
             }
+
+            $totalElapsed = round((microtime(true) - $startTime) * 1000, 2);
+            $this->log('info', 'Tipos de comprobantes obtenidos exitosamente', [
+                'cuit' => $cuit,
+                'count' => count($normalized),
+                'total_elapsed_ms' => $totalElapsed,
+                'soap_call_ms' => $callElapsed,
+            ]);
 
             return $normalized;
         } catch (AfipException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            $this->log('error', 'Error al obtener tipos de comprobantes disponibles', [
+            $this->log('error', 'Error de AFIP al obtener tipos de comprobantes', [
                 'message' => $e->getMessage(),
                 'cuit' => $cuit,
+                'code' => $e->getCode(),
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            $this->log('error', 'Error inesperado al obtener tipos de comprobantes disponibles', [
+                'message' => $e->getMessage(),
+                'cuit' => $cuit,
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw new AfipException(
@@ -411,30 +475,61 @@ class WsfeService
     /**
      * Obtiene los puntos de venta habilitados para un CUIT (FEParamGetPtosVenta)
      *
+     * Consulta a AFIP los puntos de venta (establecimientos/sucursales) que el contribuyente
+     * está habilitado a utilizar para emitir comprobantes electrónicos. Los resultados se
+     * cachean automáticamente.
+     *
      * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
-     * @return array Lista normalizada de puntos de venta
-     * @throws AfipException
+     * @return array Lista normalizada de puntos de venta con formato:
+     *               [
+     *                   'number' => int,
+     *                   'type' => string|null,
+     *                   'enabled' => bool,
+     *                   'from' => string|null (ISO date),
+     *                   'to' => string|null (ISO date)
+     *               ]
+     * @throws AfipException Si hay error en la comunicación o respuesta inválida
      */
     public function getAvailablePointsOfSale(?string $cuit = null): array
     {
+        $startTime = microtime(true);
         $cuit = $this->resolveCuit($cuit);
+
+        $this->log('info', 'Obteniendo puntos de venta disponibles', [
+            'cuit' => $cuit,
+            'environment' => $this->environment,
+        ]);
+
+        // Validar CUIT
+        if (!ValidatorHelper::isValidCuit($cuit)) {
+            throw new AfipException("CUIT inválido: {$cuit}");
+        }
 
         // Clave de cache por entorno + CUIT
         $cacheKey = $this->buildParamCacheKey('pos', $cuit);
         $ttl = (int) config('afip.param_cache.ttl', 21600); // 6 horas por defecto
 
+        // Intentar obtener desde cache
         if ($this->cache && config('afip.param_cache.enabled', true)) {
             $cached = $this->cache->get($cacheKey);
             if (is_array($cached)) {
+                $elapsed = round((microtime(true) - $startTime) * 1000, 2);
+                $this->log('debug', 'Puntos de venta obtenidos desde cache', [
+                    'cuit' => $cuit,
+                    'count' => count($cached),
+                    'elapsed_ms' => $elapsed,
+                ]);
                 return $cached;
             }
         }
 
         try {
             // 1. Obtener token y firma de WSAA (con CUIT específico)
+            $this->log('debug', 'Obteniendo autenticación de WSAA', ['cuit' => $cuit]);
             $auth = $this->wsaaService->getTokenAndSignature('wsfe', $cuit);
 
             // 2. Crear cliente SOAP
+            $this->log('debug', 'Creando cliente SOAP para WSFE', ['url' => $this->url]);
             $client = SoapHelper::createClient($this->url);
 
             // 3. Preparar parámetros para FEParamGetPtosVenta
@@ -447,6 +542,9 @@ class WsfeService
             ];
 
             // 4. Llamar método FEParamGetPtosVenta
+            $this->log('debug', 'Llamando FEParamGetPtosVenta', ['cuit' => $cuit]);
+            $callStart = microtime(true);
+            
             $soapResponse = SoapHelper::call(
                 $client,
                 'FEParamGetPtosVenta',
@@ -454,21 +552,53 @@ class WsfeService
                 config('afip.retry.max_attempts', 3)
             );
 
+            $callElapsed = round((microtime(true) - $callStart) * 1000, 2);
+            $this->log('debug', 'Respuesta recibida de FEParamGetPtosVenta', [
+                'elapsed_ms' => $callElapsed,
+            ]);
+
             // 5. Procesar respuesta
             $normalized = $this->parsePointsOfSaleResponse($soapResponse);
 
-            // 6. Guardar en cache
+            // 6. Validar que se obtuvieron resultados
+            if (empty($normalized)) {
+                $this->log('warning', 'AFIP no devolvió puntos de venta para el CUIT', [
+                    'cuit' => $cuit,
+                ]);
+            }
+
+            // 7. Guardar en cache
             if ($this->cache && config('afip.param_cache.enabled', true)) {
                 $this->cache->put($cacheKey, $normalized, $ttl);
+                $this->log('debug', 'Puntos de venta almacenados en cache', [
+                    'key' => $cacheKey,
+                    'ttl_seconds' => $ttl,
+                ]);
             }
+
+            $totalElapsed = round((microtime(true) - $startTime) * 1000, 2);
+            $this->log('info', 'Puntos de venta obtenidos exitosamente', [
+                'cuit' => $cuit,
+                'count' => count($normalized),
+                'total_elapsed_ms' => $totalElapsed,
+                'soap_call_ms' => $callElapsed,
+                'pos_numbers' => array_column($normalized, 'number'),
+            ]);
 
             return $normalized;
         } catch (AfipException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            $this->log('error', 'Error al obtener puntos de venta habilitados', [
+            $this->log('error', 'Error de AFIP al obtener puntos de venta', [
                 'message' => $e->getMessage(),
                 'cuit' => $cuit,
+                'code' => $e->getCode(),
+            ]);
+            throw $e;
+        } catch (\Exception $e) {
+            $this->log('error', 'Error inesperado al obtener puntos de venta habilitados', [
+                'message' => $e->getMessage(),
+                'cuit' => $cuit,
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw new AfipException(
@@ -545,9 +675,12 @@ class WsfeService
     /**
      * Parsea la respuesta de FEParamGetTiposCbte y la normaliza
      *
-     * @param mixed $soapResponse
-     * @return array
-     * @throws AfipException
+     * Procesa la respuesta SOAP de AFIP y normaliza los tipos de comprobantes,
+     * filtrando por vigencia y manejando errores de estructura.
+     *
+     * @param mixed $soapResponse Respuesta SOAP de FEParamGetTiposCbte
+     * @return array Array normalizado de tipos de comprobantes
+     * @throws AfipException Si la estructura de respuesta es inválida o contiene errores
      */
     protected function parseReceiptTypesResponse(mixed $soapResponse): array
     {
@@ -555,74 +688,14 @@ class WsfeService
             ? $soapResponse->FEParamGetTiposCbteResult
             : $soapResponse;
 
-        // Estructura esperada: ResultGet->CbteTipo (array/objeto)
-        if (!isset($response->ResultGet)) {
-            throw new AfipException('Respuesta inválida de WSFE al obtener tipos de comprobante: falta ResultGet');
-        }
-
-        $resultGet = $response->ResultGet;
-        $items = $resultGet->CbteTipo ?? [];
-
-        if (is_object($items)) {
-            $items = [$items];
-        } elseif (!is_array($items)) {
-            $items = [];
-        }
-
-        $now = (int) date('Ymd');
-        $normalized = [];
-
-        foreach ($items as $item) {
-            $code = isset($item->Id) ? (int) $item->Id : null;
-            $description = isset($item->Desc) ? (string) $item->Desc : null;
-            $fchDesde = isset($item->FchDesde) ? (int) $item->FchDesde : null;
-            $fchHasta = isset($item->FchHasta) ? (int) $item->FchHasta : null;
-
-            if ($code === null || $description === null) {
-                continue;
-            }
-
-            // Filtrar por vigencia si AFIP envía fechas
-            if ($fchDesde !== null && $now < $fchDesde) {
-                continue;
-            }
-            if ($fchHasta !== null && $fchHasta > 0 && $now > $fchHasta) {
-                continue;
-            }
-
-            $normalized[] = [
-                'id' => $code,
-                'code' => $code,
-                'description' => $description,
-                'from' => $fchDesde ? $this->convertAfipDateToIso($fchDesde) : null,
-                'to' => ($fchHasta && $fchHasta > 0) ? $this->convertAfipDateToIso($fchHasta) : null,
-            ];
-        }
-
-        return $normalized;
-    }
-
-    /**
-     * Parsea la respuesta de FEParamGetPtosVenta y la normaliza
-     *
-     * @param mixed $soapResponse
-     * @return array
-     * @throws AfipException
-     */
-    protected function parsePointsOfSaleResponse(mixed $soapResponse): array
-    {
-        $response = is_object($soapResponse) && isset($soapResponse->FEParamGetPtosVentaResult)
-            ? $soapResponse->FEParamGetPtosVentaResult
-            : $soapResponse;
-
-        // Log de respuesta (solo en modo debug)
+        // Log de respuesta en modo debug
         if (config('app.debug', false)) {
-            $this->log('debug', 'Respuesta RAW de FEParamGetPtosVenta', [
+            $this->log('debug', 'Respuesta RAW de FEParamGetTiposCbte', [
                 'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR),
             ]);
         }
 
-        // Si AFIP devuelve errores en lugar de ResultGet, reportarlos claramente
+        // Verificar si hay errores en la respuesta
         if (isset($response->Errors)) {
             $errors = $response->Errors;
             if (is_object($errors) && isset($errors->Err)) {
@@ -637,7 +710,139 @@ class WsfeService
                 $code = trim((string) ($err->Code ?? ''));
                 $msg = trim((string) ($err->Msg ?? ''));
                 if ($code !== '' || $msg !== '') {
-                    $messages[] = "{$code}: {$msg}";
+                    $messages[] = "[{$code}] {$msg}";
+                }
+            }
+
+            if (!empty($messages)) {
+                $msg = implode('; ', $messages);
+                throw new AfipException("Error de AFIP al obtener tipos de comprobantes: {$msg}");
+            }
+        }
+
+        // Estructura esperada: ResultGet->CbteTipo (array/objeto)
+        if (!isset($response->ResultGet)) {
+            $this->log('error', 'Respuesta inválida de WSFE: falta ResultGet', [
+                'response_keys' => is_object($response) ? array_keys(get_object_vars($response)) : [],
+            ]);
+            throw new AfipException('Respuesta inválida de WSFE al obtener tipos de comprobante: falta ResultGet');
+        }
+
+        $resultGet = $response->ResultGet;
+        $items = $resultGet->CbteTipo ?? [];
+
+        // Normalizar items a array
+        if (is_object($items)) {
+            $items = [$items];
+        } elseif (!is_array($items)) {
+            $this->log('warning', 'No se encontraron tipos de comprobantes en la respuesta', [
+                'resultGet_keys' => is_object($resultGet) ? array_keys(get_object_vars($resultGet)) : [],
+            ]);
+            $items = [];
+        }
+
+        $this->log('debug', 'Procesando tipos de comprobantes', [
+            'total_items' => count($items),
+        ]);
+
+        $now = (int) date('Ymd');
+        $normalized = [];
+        $filtered = 0;
+
+        foreach ($items as $item) {
+            $code = isset($item->Id) ? (int) $item->Id : null;
+            $description = isset($item->Desc) ? (string) $item->Desc : null;
+            $fchDesde = isset($item->FchDesde) ? (int) $item->FchDesde : null;
+            $fchHasta = isset($item->FchHasta) ? (int) $item->FchHasta : null;
+
+            // Validar campos obligatorios
+            if ($code === null || $description === null) {
+                $this->log('warning', 'Tipo de comprobante con campos incompletos', [
+                    'id' => $code,
+                    'desc' => $description,
+                ]);
+                continue;
+            }
+
+            // Filtrar por vigencia si AFIP envía fechas
+            if ($fchDesde !== null && $now < $fchDesde) {
+                $filtered++;
+                $this->log('debug', 'Tipo de comprobante aún no vigente', [
+                    'code' => $code,
+                    'description' => $description,
+                    'from' => $fchDesde,
+                    'now' => $now,
+                ]);
+                continue;
+            }
+            if ($fchHasta !== null && $fchHasta > 0 && $now > $fchHasta) {
+                $filtered++;
+                $this->log('debug', 'Tipo de comprobante expirado', [
+                    'code' => $code,
+                    'description' => $description,
+                    'to' => $fchHasta,
+                    'now' => $now,
+                ]);
+                continue;
+            }
+
+            $normalized[] = [
+                'id' => $code,
+                'code' => $code,
+                'description' => $description,
+                'from' => $fchDesde ? $this->convertAfipDateToIso($fchDesde) : null,
+                'to' => ($fchHasta && $fchHasta > 0) ? $this->convertAfipDateToIso($fchHasta) : null,
+            ];
+        }
+
+        $this->log('debug', 'Tipos de comprobantes procesados', [
+            'total_received' => count($items),
+            'filtered_out' => $filtered,
+            'valid_results' => count($normalized),
+        ]);
+
+        return $normalized;
+    }
+
+    /**
+     * Parsea la respuesta de FEParamGetPtosVenta y la normaliza
+     *
+     * Procesa la respuesta SOAP de AFIP y normaliza los puntos de venta,
+     * filtrando por vigencia y manejando errores de estructura.
+     *
+     * @param mixed $soapResponse Respuesta SOAP de FEParamGetPtosVenta
+     * @return array Array normalizado de puntos de venta
+     * @throws AfipException Si la estructura de respuesta es inválida o contiene errores
+     */
+    protected function parsePointsOfSaleResponse(mixed $soapResponse): array
+    {
+        $response = is_object($soapResponse) && isset($soapResponse->FEParamGetPtosVentaResult)
+            ? $soapResponse->FEParamGetPtosVentaResult
+            : $soapResponse;
+
+        // Log de respuesta (solo en modo debug)
+        if (config('app.debug', false)) {
+            $this->log('debug', 'Respuesta RAW de FEParamGetPtosVenta', [
+                'response' => json_encode($response, JSON_PARTIAL_OUTPUT_ON_ERROR),
+            ]);
+        }
+
+        // Verificar si hay errores en la respuesta
+        if (isset($response->Errors)) {
+            $errors = $response->Errors;
+            if (is_object($errors) && isset($errors->Err)) {
+                $errors = $errors->Err;
+            }
+            if (!is_array($errors)) {
+                $errors = [$errors];
+            }
+
+            $messages = [];
+            foreach ($errors as $err) {
+                $code = trim((string) ($err->Code ?? ''));
+                $msg = trim((string) ($err->Msg ?? ''));
+                if ($code !== '' || $msg !== '') {
+                    $messages[] = "[{$code}] {$msg}";
                 }
             }
 
@@ -652,34 +857,72 @@ class WsfeService
             $resultGet = $response->ResultGet;
             $items = $resultGet->PtoVenta ?? [];
         } else {
+            $this->log('warning', 'Respuesta sin ResultGet, intentando obtener PtoVenta directo', [
+                'response_keys' => is_object($response) ? array_keys(get_object_vars($response)) : [],
+            ]);
             $items = $response->PtoVenta ?? [];
         }
 
+        // Normalizar items a array
         if (is_object($items)) {
             $items = [$items];
         } elseif (!is_array($items)) {
-            // Si no hay estructura de puntos de venta reconocible, devolver lista vacía
+            $this->log('warning', 'No se encontraron puntos de venta en la respuesta', [
+                'response_structure' => is_object($response) ? array_keys(get_object_vars($response)) : 'not_object',
+            ]);
             $items = [];
         }
 
+        $this->log('debug', 'Procesando puntos de venta', [
+            'total_items' => count($items),
+        ]);
+
         $now = (int) date('Ymd');
         $normalized = [];
+        $filtered = 0;
 
         foreach ($items as $item) {
             $number = isset($item->Nro) ? (int) $item->Nro : null;
             $type = isset($item->Tipo) ? (string) $item->Tipo : null;
+            $blocked = isset($item->Bloqueado) ? (string) $item->Bloqueado : 'N';
             $fchDesde = isset($item->FchDesde) ? (int) $item->FchDesde : null;
             $fchHasta = isset($item->FchHasta) ? (int) $item->FchHasta : null;
 
+            // Validar campo obligatorio
             if ($number === null) {
+                $this->log('warning', 'Punto de venta sin número', [
+                    'item' => json_encode($item, JSON_PARTIAL_OUTPUT_ON_ERROR),
+                ]);
+                continue;
+            }
+
+            // Filtrar puntos bloqueados
+            if (strtoupper($blocked) === 'S') {
+                $filtered++;
+                $this->log('debug', 'Punto de venta bloqueado', [
+                    'number' => $number,
+                    'type' => $type,
+                ]);
                 continue;
             }
 
             // Filtrar por vigencia
             if ($fchDesde !== null && $now < $fchDesde) {
+                $filtered++;
+                $this->log('debug', 'Punto de venta aún no vigente', [
+                    'number' => $number,
+                    'from' => $fchDesde,
+                    'now' => $now,
+                ]);
                 continue;
             }
             if ($fchHasta !== null && $fchHasta > 0 && $now > $fchHasta) {
+                $filtered++;
+                $this->log('debug', 'Punto de venta expirado', [
+                    'number' => $number,
+                    'to' => $fchHasta,
+                    'now' => $now,
+                ]);
                 continue;
             }
 
@@ -691,6 +934,12 @@ class WsfeService
                 'to' => ($fchHasta && $fchHasta > 0) ? $this->convertAfipDateToIso($fchHasta) : null,
             ];
         }
+
+        $this->log('debug', 'Puntos de venta procesados', [
+            'total_received' => count($items),
+            'filtered_out' => $filtered,
+            'valid_results' => count($normalized),
+        ]);
 
         return $normalized;
     }
