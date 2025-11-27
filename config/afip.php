@@ -173,6 +173,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Configuración SSL
+    |--------------------------------------------------------------------------
+    |
+    | Configuración SSL para conexiones con AFIP.
+    | Los valores por defecto solucionan errores comunes como:
+    | - "dh key too small"
+    | - "Could not connect to host"
+    |
+    | Esto permite que el SDK funcione sin necesidad de modificar openssl.cnf
+    |
+    */
+
+    'ssl' => [
+        // Ciphers permitidos (DEFAULT:!DH evita el error "dh key too small")
+        'ciphers' => env('AFIP_SSL_CIPHERS', 'DEFAULT:!DH'),
+        
+        // Nivel de seguridad SSL (1 = compatibilidad con servidores antiguos)
+        'security_level' => (int) env('AFIP_SSL_SECURITY_LEVEL', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Configuración de Puntos de Venta
     |--------------------------------------------------------------------------
     |

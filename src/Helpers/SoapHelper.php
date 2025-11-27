@@ -36,8 +36,10 @@ class SoapHelper
                     'verify_peer' => true,
                     'verify_peer_name' => true,
                     'allow_self_signed' => false,
-                    // Opcional: Si se especifica un archivo de certificados CA, usarlo
-                    // 'cafile' => config('afip.ssl.cafile'), // Ruta a certificados CA de AFIP
+                    // Configuración para compatibilidad con servidores AFIP
+                    // Soluciona errores "dh key too small" y "Could not connect to host"
+                    'ciphers' => config('afip.ssl.ciphers', 'DEFAULT:!DH'),
+                    'security_level' => (int) config('afip.ssl.security_level', 1),
                 ],
             ]),
         ];
