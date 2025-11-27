@@ -9,10 +9,22 @@ use Resguar\AfipSdk\Exceptions\AfipException;
 /**
  * Gestor de certificados digitales
  *
- * Maneja la carga, validación y uso de certificados para comunicación con AFIP
+ * Maneja la carga, validación y uso de certificados para comunicación con AFIP.
+ * Soporta múltiples certificados para diferentes CUITs (multi-tenant).
  */
 class CertificateManager
 {
+    /**
+     * Paths dinámicos para certificados por CUIT
+     */
+    private ?string $dynamicCertPath = null;
+    private ?string $dynamicKeyPath = null;
+    
+    /**
+     * CUIT actualmente cargado
+     */
+    private ?string $currentCuit = null;
+
     /**
      * Create a new CertificateManager instance.
      *
@@ -28,6 +40,101 @@ class CertificateManager
     }
 
     /**
+     * Establece paths de certificado dinámicos (para multi-CUIT)
+     *
+     * @param string $certPath Ruta completa al certificado
+     * @param string $keyPath Ruta completa a la clave privada
+     * @return self
+     */
+    public function setCertificatePaths(string $certPath, string $keyPath): self
+    {
+        $this->dynamicCertPath = $certPath;
+        $this->dynamicKeyPath = $keyPath;
+        return $this;
+    }
+
+    /**
+     * Carga certificados para un CUIT específico desde la estructura de carpetas
+     *
+     * Estructura esperada:
+     *   {basePath}/{cuit}/certificate.crt
+     *   {basePath}/{cuit}/private.key
+     *
+     * @param string $cuit CUIT del contribuyente
+     * @param string|null $basePath Ruta base (usa config si no se especifica)
+     * @return self
+     * @throws AfipException Si no se encuentran los certificados
+     */
+    public function loadForCuit(string $cuit, ?string $basePath = null): self
+    {
+        $basePath = $basePath ?? config('afip.certificates_base_path', $this->certificatesPath);
+        
+        $cuitPath = $basePath . DIRECTORY_SEPARATOR . $cuit;
+        $certPath = $cuitPath . DIRECTORY_SEPARATOR . 'certificate.crt';
+        $keyPath = $cuitPath . DIRECTORY_SEPARATOR . 'private.key';
+        
+        // Verificar que existan los archivos
+        if (!file_exists($certPath)) {
+            throw new AfipException(
+                "Certificado no encontrado para CUIT {$cuit}: {$certPath}"
+            );
+        }
+        
+        if (!file_exists($keyPath)) {
+            throw new AfipException(
+                "Clave privada no encontrada para CUIT {$cuit}: {$keyPath}"
+            );
+        }
+        
+        $this->dynamicCertPath = $certPath;
+        $this->dynamicKeyPath = $keyPath;
+        $this->currentCuit = $cuit;
+        
+        return $this;
+    }
+
+    /**
+     * Verifica si hay certificados cargados para un CUIT específico
+     *
+     * @param string $cuit CUIT a verificar
+     * @param string|null $basePath Ruta base (usa config si no se especifica)
+     * @return bool
+     */
+    public function hasCertificatesForCuit(string $cuit, ?string $basePath = null): bool
+    {
+        $basePath = $basePath ?? config('afip.certificates_base_path', $this->certificatesPath);
+        
+        $cuitPath = $basePath . DIRECTORY_SEPARATOR . $cuit;
+        $certPath = $cuitPath . DIRECTORY_SEPARATOR . 'certificate.crt';
+        $keyPath = $cuitPath . DIRECTORY_SEPARATOR . 'private.key';
+        
+        return file_exists($certPath) && file_exists($keyPath);
+    }
+
+    /**
+     * Obtiene el CUIT actualmente cargado
+     *
+     * @return string|null
+     */
+    public function getCurrentCuit(): ?string
+    {
+        return $this->currentCuit;
+    }
+
+    /**
+     * Limpia los paths dinámicos y vuelve a usar los de configuración
+     *
+     * @return self
+     */
+    public function resetToDefault(): self
+    {
+        $this->dynamicCertPath = null;
+        $this->dynamicKeyPath = null;
+        $this->currentCuit = null;
+        return $this;
+    }
+
+    /**
      * Obtiene la ruta completa al archivo de clave privada
      *
      * @return string
@@ -35,6 +142,15 @@ class CertificateManager
      */
     public function getKeyPath(): string
     {
+        // Usar path dinámico si está establecido
+        if ($this->dynamicKeyPath !== null) {
+            if (!file_exists($this->dynamicKeyPath)) {
+                throw new AfipException("Clave privada no encontrada: {$this->dynamicKeyPath}");
+            }
+            return $this->dynamicKeyPath;
+        }
+
+        // Fallback a configuración original
         $path = $this->certificatesPath . DIRECTORY_SEPARATOR . $this->keyFileName;
 
         if (!file_exists($path)) {
@@ -52,6 +168,15 @@ class CertificateManager
      */
     public function getCertPath(): string
     {
+        // Usar path dinámico si está establecido
+        if ($this->dynamicCertPath !== null) {
+            if (!file_exists($this->dynamicCertPath)) {
+                throw new AfipException("Certificado no encontrado: {$this->dynamicCertPath}");
+            }
+            return $this->dynamicCertPath;
+        }
+
+        // Fallback a configuración original
         $path = $this->certificatesPath . DIRECTORY_SEPARATOR . $this->certFileName;
 
         if (!file_exists($path)) {

@@ -16,6 +16,7 @@ Este manual explica paso a paso cómo configurar AFIP para usar el SDK de factur
 8. [Paso 7: Verificar Funcionamiento](#8-paso-7-verificar-funcionamiento)
 9. [Solución de Problemas](#9-solución-de-problemas)
 10. [Referencia de Métodos del SDK](#10-referencia-de-métodos-del-sdk)
+11. [Configuración Multi-CUIT](#11-configuración-multi-cuit-múltiples-empresas)
 
 ---
 
@@ -60,8 +61,6 @@ Este manual explica paso a paso cómo configurar AFIP para usar el SDK de factur
 3. Buscar: **"ARCA - Administración de Certificados"**
 4. Seleccionarlo y confirmar
 
-> ⚠️ **IMPORTANTE**: Si el contribuyente es nuevo, primero debe solicitar la habilitación para emitir comprobantes electrónicos desde el servicio "Regímenes de Facturación y Registración".
-
 ---
 
 ## 3. Paso 2: Crear Punto de Venta WebService
@@ -80,12 +79,12 @@ Este manual explica paso a paso cómo configurar AFIP para usar el SDK de factur
 |-------|-------|
 | Número | El siguiente disponible (ej: 2, 3, etc.) |
 | Nombre | Descripción del punto (ej: "Sistema Web") |
-| Tipo | **WebService** ⚠️ MUY IMPORTANTE |
+| Tipo | **RECE** ⚠️ MUY IMPORTANTE |
 | Domicilio | Seleccionar el domicilio fiscal |
 
 3. Hacer clic en **"Guardar"**
 
-> ⚠️ **IMPORTANTE**: El tipo DEBE ser **"WebService"**, NO "Controlador Fiscal" ni "Factura en Línea".
+> ⚠️ **IMPORTANTE**: El tipo DEBE ser **"RECE"**.
 
 ### 3.3 Anotar el Número de Punto de Venta
 
@@ -112,7 +111,7 @@ Ejecutar en la terminal (reemplazar los valores):
 
 ```bash
 # Variables (MODIFICAR)
-CUIT="30718708997"
+CUIT="1234567890"
 ALIAS="mi-sistema"
 NOMBRE="NOMBRE DE LA EMPRESA S.R.L."
 
@@ -155,12 +154,7 @@ chmod 600 storage/certificates/clave_privada.key
 
 ### 5.1 Ingresar a ARCA
 
-1. Ir a: **https://www.afip.gob.ar/arqa/** (o buscar "ARCA" en el menú de AFIP)
-2. Seleccionar ambiente: **PRODUCCIÓN** (o Testing si es para pruebas)
-
-### 5.2 Crear Nuevo Certificado
-
-1. Ir a **"Certificados"** → **"Agregar Certificado"** (o "Nuevo")
+1. Ir a **"Certificados digitales"** → **"Agregar Certificado"**
 2. Completar:
 
 | Campo | Valor |
@@ -508,7 +502,90 @@ $response = Afip::authorizeInvoice([
 
 ---
 
+## 11. Configuración Multi-CUIT (Múltiples Empresas)
+
+Si tu sistema maneja facturación para **múltiples empresas/CUITs**, el SDK soporta certificados separados por CUIT.
+
+### 11.1 Estructura de Carpetas
+
+```
+storage/certificates/
+├── 20123456789/              # CUIT de Empresa 1
+│   ├── certificate.crt
+│   └── private.key
+├── 30987654321/              # CUIT de Empresa 2
+│   ├── certificate.crt
+│   └── private.key
+├── 27456789012/              # CUIT de Empresa 3
+│   ├── certificate.crt
+│   └── private.key
+└── openssl.cnf               # Configuración SSL (compartida)
+```
+
+### 11.2 Configuración
+
+```env
+# .env
+AFIP_CERTIFICATES_BASE_PATH=storage/certificates
+```
+
+### 11.3 Uso en el Código
+
+```php
+use Resguar\AfipSdk\Facades\Afip;
+
+// El SDK detecta automáticamente el certificado según el CUIT
+$tipos = Afip::getReceiptTypesForCuit('20123456789');
+
+// Autorizar factura para un CUIT específico
+$response = Afip::authorizeInvoice($invoiceData, '30987654321');
+
+// Obtener puntos de venta de otro CUIT
+$puntosVenta = Afip::getAvailablePointsOfSale('27456789012');
+```
+
+### 11.4 Cómo Funciona
+
+1. Cuando se llama a un método con un CUIT, el SDK busca:
+   - `{certificates_base_path}/{cuit}/certificate.crt`
+   - `{certificates_base_path}/{cuit}/private.key`
+
+2. Si existe la carpeta del CUIT, usa esos certificados
+3. Si NO existe, usa los certificados por defecto de `certificates.path`
+
+### 11.5 Agregar Nuevo Cliente
+
+Para cada nuevo cliente:
+
+1. Crear carpeta: `storage/certificates/{CUIT}/`
+2. Generar clave privada y CSR (ver Paso 3)
+3. Subir CSR a ARCA del cliente
+4. Descargar certificado y guardarlo como `certificate.crt`
+5. Copiar clave privada como `private.key`
+6. Autorizar servicios en ARCA (wsfe, ws_sr_padron_a13)
+
+```bash
+# Crear estructura para nuevo cliente
+CUIT="20123456789"
+mkdir -p storage/certificates/$CUIT
+chmod 700 storage/certificates/$CUIT
+
+# Generar clave y CSR
+openssl genrsa -out storage/certificates/$CUIT/private.key 2048
+openssl req -new \
+  -key storage/certificates/$CUIT/private.key \
+  -out storage/certificates/$CUIT/certificado.csr \
+  -subj "/C=AR/O=NOMBRE EMPRESA/CN=alias/serialNumber=CUIT $CUIT"
+
+# Proteger clave
+chmod 600 storage/certificates/$CUIT/private.key
+```
+
+---
+
 ## 📁 Estructura de Archivos
+
+### Modo Simple (Un CUIT)
 
 ```
 tu-proyecto/
@@ -521,6 +598,25 @@ tu-proyecto/
 ├── .gitignore                  # Ignorar certificados
 └── config/
     └── afip.php                # Configuración del SDK
+```
+
+### Modo Multi-CUIT
+
+```
+tu-proyecto/
+├── storage/
+│   └── certificates/
+│       ├── 20123456789/
+│       │   ├── certificate.crt
+│       │   └── private.key
+│       ├── 30987654321/
+│       │   ├── certificate.crt
+│       │   └── private.key
+│       └── openssl.cnf
+├── .env
+├── .gitignore
+└── config/
+    └── afip.php
 ```
 
 ---

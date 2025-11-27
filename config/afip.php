@@ -55,6 +55,16 @@ return [
     |
     | Ruta y nombres de los archivos de certificados digitales
     |
+    | Para sistemas multi-CUIT, se soportan dos modos:
+    |
+    | 1. Modo simple (un solo CUIT):
+    |    - Usa 'certificates.path' + 'certificates.key' + 'certificates.crt'
+    |
+    | 2. Modo multi-CUIT:
+    |    - Usa 'certificates_base_path' + estructura de carpetas por CUIT
+    |    - Estructura: {certificates_base_path}/{cuit}/certificate.crt
+    |                  {certificates_base_path}/{cuit}/private.key
+    |
     */
 
     'certificates' => [
@@ -63,6 +73,30 @@ return [
         'crt' => env('AFIP_CERTIFICATE_CRT', 'certificate.crt'),
         'password' => env('AFIP_CERTIFICATE_PASSWORD'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ruta Base para Certificados Multi-CUIT
+    |--------------------------------------------------------------------------
+    |
+    | Si tu sistema maneja múltiples CUITs, puedes organizar los certificados
+    | en subcarpetas por CUIT. Ejemplo:
+    |
+    |   storage/certificates/
+    |   ├── 20123456789/
+    |   │   ├── certificate.crt
+    |   │   └── private.key
+    |   ├── 30987654321/
+    |   │   ├── certificate.crt
+    |   │   └── private.key
+    |   └── ...
+    |
+    | El SDK detectará automáticamente si existe una carpeta para el CUIT
+    | y usará esos certificados. Si no existe, usará los de 'certificates'.
+    |
+    */
+
+    'certificates_base_path' => env('AFIP_CERTIFICATES_BASE_PATH', storage_path('certificates')),
 
     /*
     |--------------------------------------------------------------------------

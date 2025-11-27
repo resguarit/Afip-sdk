@@ -52,6 +52,9 @@ class WsaaService
         $cuit = $this->resolveCuit($cuit);
         $cacheKey = $this->getCacheKey($service, $cuit);
 
+        // Cargar certificados para el CUIT si es diferente al default o hay estructura multi-CUIT
+        $this->loadCertificatesForCuit($cuit);
+
         // Intentar obtener del cache si está habilitado
         if ($this->cache !== null && config('afip.cache.enabled', true)) {
             $cached = $this->cache->get($cacheKey);
@@ -595,6 +598,51 @@ class WsaaService
             expirationDate: $expirationDate,
             generationTime: $generationTime
         );
+    }
+
+    /**
+     * Carga los certificados para un CUIT específico
+     *
+     * Intenta cargar certificados en el siguiente orden:
+     * 1. Si existe estructura multi-CUIT ({basePath}/{cuit}/), usa esos certificados
+     * 2. Si no, usa los certificados por defecto de la configuración
+     *
+     * @param string $cuit CUIT del contribuyente
+     * @return void
+     */
+    protected function loadCertificatesForCuit(string $cuit): void
+    {
+        // Verificar si el CUIT ya está cargado
+        if ($this->certificateManager->getCurrentCuit() === $cuit) {
+            return;
+        }
+
+        // Verificar si existe estructura multi-CUIT
+        $basePath = config('afip.certificates_base_path');
+        
+        if ($basePath && $this->certificateManager->hasCertificatesForCuit($cuit, $basePath)) {
+            $this->log('info', "Cargando certificados multi-CUIT para: {$cuit}");
+            $this->certificateManager->loadForCuit($cuit, $basePath);
+            return;
+        }
+
+        // Si el CUIT es diferente al default pero no hay estructura multi-CUIT,
+        // resetear a default (usará los certificados de configuración)
+        $defaultCuit = config('afip.cuit');
+        if ($cuit !== $defaultCuit && $this->certificateManager->getCurrentCuit() !== null) {
+            $this->log('debug', "Reseteando a certificados por defecto");
+            $this->certificateManager->resetToDefault();
+        }
+    }
+
+    /**
+     * Obtiene el CertificateManager actual
+     *
+     * @return CertificateManager
+     */
+    public function getCertificateManager(): CertificateManager
+    {
+        return $this->certificateManager;
     }
 
     /**
