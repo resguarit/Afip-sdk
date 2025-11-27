@@ -15,6 +15,7 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
  * @method static array getAvailableReceiptTypes(?string $cuit = null)
  * @method static array getAvailablePointsOfSale(?string $cuit = null)
  * @method static array getTaxpayerStatus(string $cuit)
+ * @method static array getReceiptTypesForCuit(?string $cuit = null)
  * @method static bool isAuthenticated(?string $cuit = null)
  * @method static array diagnoseAuthenticationIssue(?string $cuit = null)
  * @method static void clearParamCache(?string $cuit = null)

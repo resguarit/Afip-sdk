@@ -74,6 +74,16 @@ interface AfipServiceInterface
     public function getTaxpayerStatus(string $cuit): array;
 
     /**
+     * Obtiene los tipos de comprobantes que puede emitir un CUIT específico
+     * basándose en su condición fiscal
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Tipos de comprobantes habilitados para el CUIT
+     * @throws \Resguar\AfipSdk\Exceptions\AfipException
+     */
+    public function getReceiptTypesForCuit(?string $cuit = null): array;
+
+    /**
      * Verifica si el servicio está autenticado
      *
      * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)

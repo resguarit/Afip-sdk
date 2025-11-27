@@ -17,18 +17,23 @@ use Resguar\AfipSdk\Helpers\ValidatorHelper;
  */
 class AfipService implements AfipServiceInterface
 {
+    private ?WsPadronService $wsPadronService = null;
+
     /**
      * Create a new AfipService instance.
      *
      * @param WsaaService $wsaaService
      * @param WsfeService $wsfeService
      * @param CertificateManager $certificateManager
+     * @param WsPadronService|null $wsPadronService
      */
     public function __construct(
         private readonly WsaaService $wsaaService,
         private readonly WsfeService $wsfeService,
-        private readonly CertificateManager $certificateManager
+        private readonly CertificateManager $certificateManager,
+        ?WsPadronService $wsPadronService = null
     ) {
+        $this->wsPadronService = $wsPadronService;
     }
 
     /**
@@ -116,15 +121,35 @@ class AfipService implements AfipServiceInterface
     }
 
     /**
-     * Obtiene el estado del contribuyente
+     * Obtiene el estado del contribuyente desde el Padrón de AFIP
      *
      * @param string $cuit CUIT del contribuyente
-     * @return array Estado del contribuyente
+     * @return array Estado del contribuyente con condición IVA y datos fiscales
      * @throws AfipException
      */
     public function getTaxpayerStatus(string $cuit): array
     {
-        return $this->wsfeService->getTaxpayerStatus($cuit);
+        if ($this->wsPadronService === null) {
+            throw new AfipException('El servicio de Padrón no está configurado');
+        }
+        return $this->wsPadronService->getPersona($cuit);
+    }
+
+    /**
+     * Obtiene los tipos de comprobantes que puede emitir un CUIT específico
+     * basándose en su condición fiscal (Responsable Inscripto, Monotributista, etc.)
+     *
+     * @param string|null $cuit CUIT del contribuyente (opcional, usa config si no se proporciona)
+     * @return array Tipos de comprobantes habilitados para el CUIT
+     * @throws AfipException
+     */
+    public function getReceiptTypesForCuit(?string $cuit = null): array
+    {
+        if ($this->wsPadronService === null) {
+            throw new AfipException('El servicio de Padrón no está configurado');
+        }
+        $cuit = $cuit ?? config('afip.cuit');
+        return $this->wsPadronService->getReceiptTypesForCuit($cuit);
     }
 
     /**

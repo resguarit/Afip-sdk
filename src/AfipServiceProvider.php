@@ -10,6 +10,7 @@ use Resguar\AfipSdk\Services\AfipService;
 use Resguar\AfipSdk\Services\CertificateManager;
 use Resguar\AfipSdk\Services\WsaaService;
 use Resguar\AfipSdk\Services\WsfeService;
+use Resguar\AfipSdk\Services\WsPadronService;
 
 /**
  * Service Provider para el SDK de AFIP
@@ -66,13 +67,26 @@ class AfipServiceProvider extends ServiceProvider
             );
         });
 
+        // Registrar WsPadronService como singleton
+        $this->app->singleton(WsPadronService::class, function ($app) {
+            $environment = config('afip.environment', 'testing');
+            $defaultCuit = config('afip.cuit', '');
+
+            return new WsPadronService(
+                $app->make(WsaaService::class),
+                $environment,
+                $defaultCuit
+            );
+        });
+
         // Registrar AfipService como singleton e implementación de la interfaz
         $this->app->singleton(AfipServiceInterface::class, AfipService::class);
         $this->app->singleton(AfipService::class, function ($app) {
             return new AfipService(
                 $app->make(WsaaService::class),
                 $app->make(WsfeService::class),
-                $app->make(CertificateManager::class)
+                $app->make(CertificateManager::class),
+                $app->make(WsPadronService::class)
             );
         });
     }
