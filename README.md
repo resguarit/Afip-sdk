@@ -857,8 +857,8 @@
 
 ## 📚 Referencias Técnicas
 
-- [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
-- [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
+    - [Documentación oficial de AFIP](https://www.afip.gob.ar/fe/)
+    - [Web Services de AFIP](https://www.afip.gob.ar/fe/documentos/)
 - [ARCA - Administración de Certificados](https://www.afip.gob.ar/arqa/)
 
 ### Documentación Adicional Incluida
