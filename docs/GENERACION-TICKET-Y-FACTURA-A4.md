@@ -91,7 +91,8 @@ El array debe incluir al menos los datos que van en el comprobante y en el QR. E
 $invoice = [
     'issuer' => [
         'razon_social' => 'Mi Empresa S.A.',
-        'domicilio' => 'Calle Falsa 123',
+        'domicilio' => 'Calle Falsa 123',           // fallback si no hay domicilio_fiscal
+        'domicilio_fiscal' => 'Av. Comercial 456',  // opcional; en comprobantes se muestra este si viene
         'cuit' => '30123456789',
         'condicion_iva' => 'Responsable Inscripto',
         'iibb' => '12345678',           // opcional

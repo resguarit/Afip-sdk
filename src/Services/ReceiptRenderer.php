@@ -145,7 +145,7 @@ class ReceiptRenderer
         return array_merge([
             'issuer' => [
                 'razon_social' => $invoice['issuer']['razon_social'] ?? 'Razón Social',
-                'domicilio' => $invoice['issuer']['domicilio'] ?? '',
+                'domicilio' => $invoice['issuer']['domicilio_fiscal'] ?? $invoice['issuer']['domicilio'] ?? '',
                 'cuit' => $cuit,
                 'condicion_iva' => $invoice['issuer']['condicion_iva'] ?? 'Responsable Inscripto',
                 'iibb' => $invoice['issuer']['iibb'] ?? '',
