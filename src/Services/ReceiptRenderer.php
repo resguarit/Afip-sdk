@@ -67,8 +67,12 @@ class ReceiptRenderer
 
     /**
      * Parámetros recomendados para generar PDF desde el HTML.
-     * Ticket: ancho ~3.1" (80mm) o ~2.28" (58mm), márgenes pequeños.
-     * Factura A4: ancho 8", márgenes normales.
+     * Coinciden con el CSS de referencia: ticket 80mm, márgenes 0; A4 con margin 20px.
+     *
+     * Ticket: @page size 80mm auto, margin 0; .ticket-wrapper width 60mm, margin-left 10mm.
+     * Factura A4: body margin 20px; sin @page (A4 por defecto 210×297mm).
+     *
+     * Para DomPDF: usar 'size' => [80, null] o formato '80mm' si lo soporta; márgenes en mm.
      *
      * @return array{ ticket: array, factura_a4: array }
      */
@@ -76,18 +80,19 @@ class ReceiptRenderer
     {
         return [
             'ticket' => [
-                'width' => 3.1,       // 80mm en pulgadas; usar 2.28 para 58mm
-                'marginLeft' => 0.1,
-                'marginRight' => 0.1,
-                'marginTop' => 0.1,
-                'marginBottom' => 0.1,
+                'size' => [80, null],   // 80mm de ancho, alto auto (o string '80mm' según librería)
+                'width' => 80,           // mm (alternativa para librerías que usan width en mm)
+                'marginLeft' => 0,
+                'marginRight' => 0,
+                'marginTop' => 0,
+                'marginBottom' => 0,
             ],
             'factura_a4' => [
-                'width' => 8,
-                'marginLeft' => 0.4,
-                'marginRight' => 0.4,
-                'marginTop' => 0.4,
-                'marginBottom' => 0.4,
+                'size' => 'A4',         // 210 × 297 mm por defecto
+                'marginLeft' => 20,     // 20px (o 0.25 in ≈ 6.35mm según librería)
+                'marginRight' => 20,
+                'marginTop' => 20,
+                'marginBottom' => 20,
             ],
         ];
     }

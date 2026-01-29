@@ -46,16 +46,18 @@ $html = Afip::renderFacturaA4Html($invoice, $response);
 
 ### Opciones para generar PDF
 
-Si usás Dompdf u otra librería que convierta HTML a PDF:
+Las opciones coinciden con el **CSS de referencia** (no modificar medidas):
+
+- **Ticket**: `@page` size 80mm, margin 0; contenido en `.ticket-wrapper` 60mm de ancho, margen izquierdo 10mm.
+- **Factura A4**: hoja A4 por defecto, `body` margin 20px.
 
 ```php
 $options = Afip::getReceiptPdfOptions();
 
-// Para ticket (80mm): ancho 3.1", márgenes 0.1"
-$ticketOptions = $options['ticket'];
+// Ticket: size 80mm, márgenes 0
+$ticketOptions = $options['ticket'];  // size, width (mm), marginLeft/Right/Top/Bottom
 
-// Para ticket 58mm: usar width => 2.28 en lugar de 3.1
-// Para factura A4: ancho 8", márgenes 0.4"
+// Factura A4: A4, márgenes 20px
 $facturaOptions = $options['factura_a4'];
 ```
 
@@ -65,14 +67,19 @@ Ejemplo con **Dompdf** (no incluido en el SDK):
 use Dompdf\Dompdf;
 
 $html = Afip::renderTicketHtml($invoice, $response);
-$options = Afip::getReceiptPdfOptions()['ticket'];
+$opts = Afip::getReceiptPdfOptions()['ticket'];
 
 $dompdf = new Dompdf();
-$dompdf->setPaper([$options['width'] * 25.4, 297], 'portrait'); // width en mm, A4 alto
+// Ticket 80mm: ancho 80mm → pt (1 mm ≈ 2.83465 pt), alto ej. 297mm
+$widthPt = $opts['width'] * 2.83465;
+$dompdf->setPaper([$widthPt, 841.89], 'portrait'); // 297mm ≈ 841.89 pt
+$dompdf->set_option('isRemoteEnabled', true);
 $dompdf->loadHtml($html);
 $dompdf->render();
 $dompdf->stream('ticket.pdf');
 ```
+
+Para factura A4 con Dompdf suele usarse `setPaper('A4')` y márgenes según `$options['factura_a4']` (20px o el valor que acepte la librería).
 
 ---
 
@@ -128,13 +135,16 @@ Si instalás **endroid/qr-code**, el SDK genera la imagen del QR (PNG en Data UR
 
 ---
 
-## Anchos recomendados para PDF
+## Medidas de referencia (CSS)
 
-| Formato   | Ancho (pulgadas) | Uso        |
-|-----------|-------------------|------------|
-| Ticket 80mm | 3.1              | Térmico 80mm |
-| Ticket 58mm | 2.28             | Térmico 58mm |
-| Factura A4  | 8                | Hoja A4    |
+Los templates usan estas medidas; **no modificar** para mantener compatibilidad con impresoras térmicas y PDF.
+
+| Formato       | @page / página | Contenido              | Body / márgenes   |
+|---------------|----------------|------------------------|-------------------|
+| Ticket 80mm   | size 80mm auto, margin 0 | .ticket-wrapper 60mm, margin-left 10mm | font 9px DejaVu Sans |
+| Factura A4    | A4 por defecto (210×297mm) | header, tables estándar | margin 20px, font Arial 12px |
+
+Detalle: ticket — margen izquierdo 10mm para salvar el corte de la impresora; ancho útil 60mm. Factura A4 — logo max 120×80px, celda logo 180px.
 
 ---
 
