@@ -9,6 +9,7 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
 use Resguar\AfipSdk\Services\AfipService;
 use Resguar\AfipSdk\Services\CertificateManager;
 use Resguar\AfipSdk\Services\WsaaService;
+use Resguar\AfipSdk\Services\ReceiptRenderer;
 use Resguar\AfipSdk\Services\WsfeService;
 use Resguar\AfipSdk\Services\WsPadronService;
 
@@ -79,6 +80,11 @@ class AfipServiceProvider extends ServiceProvider
             );
         });
 
+        // Registrar ReceiptRenderer (Ticket / Factura A4 con QR AFIP)
+        $this->app->singleton(ReceiptRenderer::class, function ($app) {
+            return new ReceiptRenderer();
+        });
+
         // Registrar AfipService como singleton e implementación de la interfaz
         $this->app->singleton(AfipServiceInterface::class, AfipService::class);
         $this->app->singleton(AfipService::class, function ($app) {
@@ -86,7 +92,8 @@ class AfipServiceProvider extends ServiceProvider
                 $app->make(WsaaService::class),
                 $app->make(WsfeService::class),
                 $app->make(CertificateManager::class),
-                $app->make(WsPadronService::class)
+                $app->make(WsPadronService::class),
+                $app->make(ReceiptRenderer::class)
             );
         });
     }

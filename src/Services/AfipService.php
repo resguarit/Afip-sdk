@@ -26,15 +26,20 @@ class AfipService implements AfipServiceInterface
      * @param WsfeService $wsfeService
      * @param CertificateManager $certificateManager
      * @param WsPadronService|null $wsPadronService
+     * @param ReceiptRenderer|null $receiptRenderer
      */
     public function __construct(
         private readonly WsaaService $wsaaService,
         private readonly WsfeService $wsfeService,
         private readonly CertificateManager $certificateManager,
-        ?WsPadronService $wsPadronService = null
+        ?WsPadronService $wsPadronService = null,
+        ?ReceiptRenderer $receiptRenderer = null
     ) {
         $this->wsPadronService = $wsPadronService;
+        $this->receiptRenderer = $receiptRenderer ?? new ReceiptRenderer();
     }
+
+    private ReceiptRenderer $receiptRenderer;
 
     /**
      * Autoriza una factura electrónica y obtiene el CAE
@@ -161,6 +166,44 @@ class AfipService implements AfipServiceInterface
     public function clearParamCache(?string $cuit = null): void
     {
         $this->wsfeService->clearParamCache($cuit);
+    }
+
+    /**
+     * Genera HTML para Ticket fiscal (formato térmico 58/80mm) con QR AFIP.
+     *
+     * @param array $invoice Datos del comprobante, emisor y receptor (issuer, receiver, items, total, etc.)
+     * @param InvoiceResponse $response Respuesta de AFIP con CAE
+     * @param int $qrSize Tamaño del QR en píxeles (si endroid/qr-code está instalado)
+     * @return string HTML del ticket
+     */
+    public function renderTicketHtml(array $invoice, InvoiceResponse $response, int $qrSize = 180): string
+    {
+        return $this->receiptRenderer->renderTicketHtml($invoice, $response, $qrSize);
+    }
+
+    /**
+     * Genera HTML para Factura A4 (formato oficial completo) con QR AFIP.
+     *
+     * @param array $invoice Datos del comprobante, emisor y receptor
+     * @param InvoiceResponse $response Respuesta de AFIP con CAE
+     * @param int $qrSize Tamaño del QR en píxeles
+     * @return string HTML de la factura
+     */
+    public function renderFacturaA4Html(array $invoice, InvoiceResponse $response, int $qrSize = 120): string
+    {
+        return $this->receiptRenderer->renderFacturaA4Html($invoice, $response, $qrSize);
+    }
+
+    /**
+     * Opciones recomendadas para generar PDF desde el HTML (Dompdf, etc.).
+     * 'ticket' => ancho 3.1" (80mm) o 2.28" (58mm), márgenes 0.1"
+     * 'factura_a4' => ancho 8", márgenes 0.4"
+     *
+     * @return array{ ticket: array, factura_a4: array }
+     */
+    public function getReceiptPdfOptions(): array
+    {
+        return ReceiptRenderer::getPdfOptions();
     }
 
     /**

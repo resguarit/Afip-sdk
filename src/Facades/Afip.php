@@ -19,6 +19,9 @@ use Resguar\AfipSdk\Contracts\AfipServiceInterface;
  * @method static bool isAuthenticated(?string $cuit = null)
  * @method static array diagnoseAuthenticationIssue(?string $cuit = null)
  * @method static void clearParamCache(?string $cuit = null)
+ * @method static string renderTicketHtml(array $invoice, \Resguar\AfipSdk\DTOs\InvoiceResponse $response, int $qrSize = 180)
+ * @method static string renderFacturaA4Html(array $invoice, \Resguar\AfipSdk\DTOs\InvoiceResponse $response, int $qrSize = 120)
+ * @method static array getReceiptPdfOptions()
  *
  * @see \Resguar\AfipSdk\Services\AfipService
  */

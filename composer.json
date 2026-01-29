@@ -25,6 +25,9 @@
         "ext-openssl": "*",
         "ext-soap": "*"
     },
+    "suggest": {
+        "endroid/qr-code": "^5.0 Para generar la imagen del QR en Ticket y Factura A4 (opcional)"
+    },
     "require-dev": {
         "orchestra/testbench": "^9.0",
         "phpunit/phpunit": "^10.0"

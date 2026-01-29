@@ -98,5 +98,32 @@ interface AfipServiceInterface
      * @return array Diagnóstico completo con problemas y sugerencias
      */
     public function diagnoseAuthenticationIssue(?string $cuit = null): array;
+
+    /**
+     * Genera HTML para Ticket fiscal (térmico 58/80mm) con QR AFIP
+     *
+     * @param array $invoice Datos del comprobante (issuer, receiver, items, total, etc.)
+     * @param \Resguar\AfipSdk\DTOs\InvoiceResponse $response Respuesta de AFIP con CAE
+     * @param int $qrSize Tamaño del QR en píxeles
+     * @return string HTML del ticket
+     */
+    public function renderTicketHtml(array $invoice, \Resguar\AfipSdk\DTOs\InvoiceResponse $response, int $qrSize = 180): string;
+
+    /**
+     * Genera HTML para Factura A4 (formato oficial completo) con QR AFIP
+     *
+     * @param array $invoice Datos del comprobante
+     * @param \Resguar\AfipSdk\DTOs\InvoiceResponse $response Respuesta de AFIP con CAE
+     * @param int $qrSize Tamaño del QR en píxeles
+     * @return string HTML de la factura
+     */
+    public function renderFacturaA4Html(array $invoice, \Resguar\AfipSdk\DTOs\InvoiceResponse $response, int $qrSize = 120): string;
+
+    /**
+     * Opciones recomendadas para generar PDF (ancho, márgenes) para ticket y factura A4
+     *
+     * @return array{ ticket: array, factura_a4: array }
+     */
+    public function getReceiptPdfOptions(): array;
 }
 
