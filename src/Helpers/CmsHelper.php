@@ -233,7 +233,6 @@ class CmsHelper
         $certPublicKey = openssl_pkey_get_public($certContent);
         
         if ($certPublicKey === false) {
-            openssl_free_key($privateKey);
             throw new AfipException("No se pudo extraer la clave pública del certificado.");
         }
 
@@ -251,9 +250,6 @@ class CmsHelper
             // Si no podemos comparar, intentar verificar con openssl_x509_check_private_key
             $keyMatches = openssl_x509_check_private_key($certContent, $privateKey);
         }
-
-        openssl_free_key($privateKey);
-        openssl_free_key($certPublicKey);
 
         if (!$keyMatches) {
             throw new AfipException(

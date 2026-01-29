@@ -23,10 +23,10 @@ class SoapHelper
     public static function createClient(string $wsdl, array $options = []): SoapClient
     {
         $defaultOptions = [
-            'soap_version' => SOAP_1_2,
+            'soap_version' => \SOAP_1_2,
             'exceptions' => true,
             'trace' => true,
-            'cache_wsdl' => WSDL_CACHE_BOTH,
+            'cache_wsdl' => \WSDL_CACHE_BOTH,
             'stream_context' => stream_context_create([
                 'http' => [
                     'timeout' => config('afip.timeout', 30),

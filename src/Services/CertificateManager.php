@@ -263,11 +263,8 @@ class CertificateManager
         $signature = '';
         if (!openssl_sign($message, $signature, $privateKey, OPENSSL_ALGO_SHA256)) {
             $error = openssl_error_string() ?: 'Error desconocido';
-            openssl_free_key($privateKey);
             throw new AfipException("Error al firmar mensaje: {$error}");
         }
-
-        openssl_free_key($privateKey);
 
         // Retornar firma en base64
         return base64_encode($signature);
