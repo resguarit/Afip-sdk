@@ -27,6 +27,14 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 	<meta charset="UTF-8">
 	<title>Ticket</title>
 	<style type="text/css">
+		@page {
+			margin: 0;
+			size: 80mm auto;
+		}
+		body {
+			margin: 0;
+			padding: 0;
+		}
 		* {
 			box-sizing: border-box;
 			-webkit-user-select: none;
