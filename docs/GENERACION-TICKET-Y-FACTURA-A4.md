@@ -124,14 +124,45 @@ Si ya tenés el payload que enviaste a `authorizeInvoice`, podés reutilizarlo y
 
 ---
 
-## QR según AFIP
+## Generación del QR
 
-El SDK arma el contenido del QR según [QRespecificaciones.pdf](https://www.afip.gob.ar/fe/qr/documentos/QRespecificaciones.pdf):
+El SDK genera el QR de AFIP en dos pasos:
 
-- URL: `https://www.afip.gob.ar/fe/qr/?p={base64(json)}`
-- JSON (versión 1): fecha, cuit, ptoVta, tipoCmp, nroCmp, importe, moneda, ctz, tipoCodAut, codAut, y opcionalmente tipoDocRec, nroDocRec.
+1. **URL del QR** — Siempre se construye con `AfipQrHelper::buildQrDataUrl()`. Es la URL que debe codificarse en el código QR según [QRespecificaciones.pdf](https://www.afip.gob.ar/fe/qr/documentos/QRespecificaciones.pdf):  
+   `https://www.afip.gob.ar/fe/qr/?p={base64(json)}`  
+   El JSON (versión 1) incluye: `ver`, `fecha`, `cuit`, `ptoVta`, `tipoCmp`, `nroCmp`, `importe`, `moneda`, `ctz`, `tipoCodAut`, `codAut`, y opcionalmente `tipoDocRec`, `nroDocRec`. La fecha se normaliza a `YYYY-MM-DD`.
 
-Si instalás **endroid/qr-code**, el SDK genera la imagen del QR (PNG en Data URI) y la incrusta en el HTML. Si no, solo tenés la URL; podés generar el QR con otra librería o servicio.
+2. **Imagen del QR** — Si está instalado **endroid/qr-code**, el SDK llama a `AfipQrHelper::buildQrImageDataUri()` y genera un PNG en Data URI. Ese valor se pasa a los templates como `qr_src`.  
+   - **Ticket**: tamaño por defecto 180 px (tercer parámetro de `renderTicketHtml($invoice, $response, 180)`).  
+   - **Factura A4**: tamaño por defecto 120 px (`renderFacturaA4Html(..., 120)`).
+
+En los datos del template siempre tenés:
+
+- `qr_data_url`: la URL del QR (para otra librería o para mostrar/enlace).
+- `qr_data_uri`: Data URI de la imagen PNG, o `null` si no está endroid/qr-code.
+- `qr_src`: lo que deben usar los templates para el `<img src="...">`; si no hay librería QR, queda vacío y el template no muestra imagen (podés usar `qr_data_url` para generar el QR por tu cuenta).
+
+Uso directo del helper (sin renderizar ticket/factura):
+
+```php
+use Resguar\AfipSdk\Helpers\AfipQrHelper;
+
+$params = [
+    'fecha' => '2026-01-28',      // Y-m-d o Ymd
+    'cuit' => '30123456789',
+    'ptoVta' => 1,
+    'tipoCmp' => 6,
+    'nroCmp' => 1234,
+    'importe' => 121.00,
+    'moneda' => 'PES',
+    'ctz' => 1,
+    'tipoCodAut' => 'E',
+    'codAut' => '75123456789012',
+];
+$url = AfipQrHelper::buildQrDataUrl($params);
+// Opcional: imagen PNG (requiere endroid/qr-code)
+$dataUri = AfipQrHelper::buildQrImageDataUri($url, 120);
+```
 
 ---
 

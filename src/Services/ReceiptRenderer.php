@@ -39,7 +39,7 @@ class ReceiptRenderer
      */
     public function renderTicketHtml(array $invoice, InvoiceResponse $response, int $qrSize = 180): string
     {
-        $data = $this->buildTemplateData($invoice, $response);
+        $data = $this->buildTemplateData($invoice, $response, $qrSize);
         $data['tipo_letra'] = self::TIPO_LETRAS[$response->invoiceType] ?? 'B';
         $data['tipo_codigo'] = $response->invoiceType;
         $data['qr_src'] = $data['qr_data_uri'] ?? '';
@@ -58,7 +58,7 @@ class ReceiptRenderer
      */
     public function renderFacturaA4Html(array $invoice, InvoiceResponse $response, int $qrSize = 120): string
     {
-        $data = $this->buildTemplateData($invoice, $response);
+        $data = $this->buildTemplateData($invoice, $response, $qrSize);
         $data['tipo_letra'] = self::TIPO_LETRAS[$response->invoiceType] ?? 'B';
         $data['tipo_codigo'] = $response->invoiceType;
         $data['qr_src'] = $data['qr_data_uri'] ?? '';
@@ -97,7 +97,7 @@ class ReceiptRenderer
         ];
     }
 
-    private function buildTemplateData(array $invoice, InvoiceResponse $response): array
+    private function buildTemplateData(array $invoice, InvoiceResponse $response, int $qrSize = 200): array
     {
         $fecha = $response->additionalData['CbteFch'] ?? $invoice['date'] ?? date('Ymd');
         if (strlen($fecha) === 8 && is_numeric($fecha)) {
@@ -137,7 +137,7 @@ class ReceiptRenderer
         }
 
         $qrDataUrl = AfipQrHelper::buildQrDataUrl($qrParams);
-        $qrDataUri = AfipQrHelper::buildQrImageDataUri($qrDataUrl, 200);
+        $qrDataUri = AfipQrHelper::buildQrImageDataUri($qrDataUrl, $qrSize);
 
         $items = $invoice['items'] ?? [];
         if (empty($items) && !empty($invoice['Iva'])) {
