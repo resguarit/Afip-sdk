@@ -57,6 +57,19 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		.bill-emitter-row .col-emitter { width: 45%; text-align: left; }
 		.bill-emitter-row .col-type { width: 10%; text-align: center; vertical-align: middle; }
 		.bill-emitter-row .col-factura { width: 45%; text-align: left; padding-left: 12px; }
+		.bill-type-row td {
+			border-bottom: 1px solid #000;
+			padding: 8px 0 6px 0;
+			text-align: center;
+			vertical-align: middle;
+		}
+		.bill-type-row .type-inner {
+			display: table;
+			margin: 0 auto;
+			border-collapse: collapse;
+		}
+		.bill-type-row .type-inner .bill-type { margin-right: 10px; }
+		.bill-type-row .type-inner td { border: 0; padding: 0 5px; vertical-align: middle; }
 		.bill-type {
 			width: 60px;
 			height: 50px;
@@ -129,7 +142,18 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 </head>
 <body>
 	<table class="bill-container">
-		<!-- Encabezado: emisor | caja B centrada | Factura + datos (todo dentro del área A4) -->
+		<!-- Tipo de comprobante arriba del todo: B + Factura centrados -->
+		<tr class="bill-type-row">
+			<td colspan="3">
+				<table class="type-inner" style="margin-left: auto; margin-right: auto;">
+					<tr>
+						<td><div class="bill-type"><span><?= htmlspecialchars($tipo_letra) ?></span></div></td>
+						<td><span class="text-lg">Factura</span></td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+		<!-- Encabezado: emisor | espacio | Factura + datos -->
 		<tr class="bill-emitter-row">
 			<td class="col-emitter">
 				<div class="text-lg"><?= htmlspecialchars($issuer['razon_social'] ?? '') ?></div>
@@ -137,11 +161,8 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 				<p><strong>Domicilio Comercial:</strong> <?= htmlspecialchars($issuer['domicilio'] ?? '') ?></p>
 				<p><strong>Condición Frente al IVA:</strong> <?= htmlspecialchars($issuer['condicion_iva'] ?? 'Responsable inscripto') ?></p>
 			</td>
-			<td class="col-type">
-				<div class="bill-type"><span><?= htmlspecialchars($tipo_letra) ?></span></div>
-			</td>
+			<td class="col-type"></td>
 			<td class="col-factura">
-				<div class="text-lg">Factura</div>
 				<table class="invoice-details">
 					<tr>
 						<td class="pv"><strong>Punto de Venta:</strong> <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></td>
