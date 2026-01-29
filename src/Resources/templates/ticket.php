@@ -117,7 +117,7 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 		</tr>
 		<tr>
 			<td class="border-top padding-t-3 padding-b-3">
-				<p>A CONSUMIDOR FINAL</p>
+				<p><?= htmlspecialchars(strtoupper($receiver['condicion_iva'] ?? 'Consumidor final')) ?></p>
 			</td>
 		</tr>
 		<tr>
