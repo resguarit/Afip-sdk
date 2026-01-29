@@ -1,9 +1,6 @@
 <?php
 /**
- * Ticket fiscal - formato térmico 80mm compatible con Dompdf
- * Variables: $issuer, $receiver, $comprobante, $items, $subtotal, $iva_total, $total,
- *            $cae, $cae_vencimiento, $qr_src, $tipo_letra, $tipo_codigo, $condicion_venta
- *            $footer_text, $footer_logo_src (opcionales)
+ * Ticket fiscal - igual a referencia (8cm, monospace 12px, líneas dashed)
  */
 $issuer = $issuer ?? [];
 $receiver = $receiver ?? [];
@@ -27,158 +24,155 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 	<meta charset="UTF-8">
 	<title>Ticket</title>
 	<style type="text/css">
+		/* IMPORTANTE: @page para Dompdf */
 		@page {
 			size: 80mm auto;
 			margin: 0;
 		}
-		* {
-			box-sizing: border-box;
-		}
-		body {
-			font-family: 'DejaVu Sans', monospace, sans-serif;
-			font-size: 12px;
+		html, body {
 			margin: 0;
 			padding: 0;
-			color: #000;
 			width: 80mm;
 		}
-		.ticket-wrapper {
-			width: 70mm;
-			max-width: 70mm;
-			margin: 0 auto;
-			padding: 5mm 0;
+
+		*{
+			box-sizing: border-box;
+			-webkit-user-select: none;
+			-moz-user-select: none;
+			-ms-user-select: none;
+			user-select: none;
 		}
-		.text-lg {
-			font-size: 18px;
-			font-weight: bold;
+
+		.bill-container{
+			border-collapse: collapse;
+			max-width: 8cm;
+			position: absolute;
+			left:0;
+			right: 0;
+			margin: auto;
+			font-family: 'DejaVu Sans', monospace, sans-serif;
+			font-size: 12px;
 		}
-		.text-center {
+
+		.text-lg{
+			font-size: 20px;
+		}
+
+		.text-center{
 			text-align: center;
 		}
-		.text-right {
-			text-align: right;
+
+		#qrcode {
+			width: 75%
 		}
+
 		p {
 			margin: 2px 0;
 		}
-		table {
+
+		table table {
 			width: 100%;
-			border-collapse: collapse;
 		}
-		table td {
-			padding: 2px 0;
-			vertical-align: top;
-		}
-		.items-table td:last-child {
+
+		table table tr td:last-child{
 			text-align: right;
 		}
+
 		.border-top {
-			border-top: 1px dashed #000;
-			padding-top: 5px;
-			margin-top: 5px;
+			border-top: 1px dashed;
 		}
-		.border-bottom {
-			border-bottom: 1px dashed #000;
-			padding-bottom: 5px;
-			margin-bottom: 5px;
+
+		.padding-b-3 {
+			padding-bottom: 3px;
 		}
-		.total-row {
-			font-size: 14px;
-			font-weight: bold;
-		}
-		#qrcode {
-			width: 50mm;
-			max-width: 50mm;
-			display: block;
-			margin: 5px auto;
-		}
-		.footer {
-			text-align: center;
-			margin-top: 10px;
-			font-size: 10px;
-		}
-		.footer img {
-			height: 20px;
-			vertical-align: middle;
+
+		.padding-t-3 {
+			padding-top: 3px;
 		}
 	</style>
 </head>
 <body>
-	<div class="ticket-wrapper">
-		<!-- Emisor -->
-		<div class="border-bottom">
-			<p><strong><?= htmlspecialchars($issuer['razon_social'] ?? '') ?></strong></p>
-			<p><?= htmlspecialchars($issuer['domicilio'] ?? '') ?></p>
-			<p>C.U.I.T.: <?= htmlspecialchars($issuer['cuit'] ?? '') ?></p>
-			<p><?= htmlspecialchars(strtoupper($issuer['condicion_iva'] ?? 'RESPONSABLE INSCRIPTO')) ?></p>
-			<?php if (!empty($issuer['iibb'])): ?>
-			<p>IIBB: <?= htmlspecialchars($issuer['iibb']) ?></p>
-			<?php endif; ?>
-			<?php if (!empty($issuer['inicio_actividad'])): ?>
-			<p>Inicio Act.: <?= htmlspecialchars($issuer['inicio_actividad']) ?></p>
-			<?php endif; ?>
-		</div>
-
-		<!-- Tipo comprobante -->
-		<div class="text-center border-bottom">
-			<p class="text-lg">FACTURA <?= htmlspecialchars($tipo_letra) ?></p>
-			<p>Código <?= (int) $tipo_codigo ?></p>
-			<p>P.V: <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?> | Nro: <?= htmlspecialchars($comprobante['nro'] ?? '') ?></p>
-			<p>Fecha: <?= htmlspecialchars($comprobante['fecha'] ?? '') ?></p>
-			<p>Concepto: <?= htmlspecialchars($comprobante['concepto_texto'] ?? 'Productos') ?></p>
-		</div>
-
-		<!-- Receptor -->
-		<div class="border-bottom">
-			<p>A CONSUMIDOR FINAL</p>
-		</div>
-
-		<!-- Items -->
-		<div class="border-bottom">
-			<table class="items-table">
-				<?php foreach ($items as $item): ?>
-				<tr>
-					<td><?= (int) ($item['quantity'] ?? $item['cantidad'] ?? 1) ?></td>
-					<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
-					<td><?= htmlspecialchars($item['taxRate'] ?? $item['iva_pct'] ?? '21') ?>%</td>
-					<td><?= number_format((float) ($item['unitPrice'] ?? $item['subtotal'] ?? 0), 2, ',', '.') ?></td>
-				</tr>
-				<?php endforeach; ?>
-			</table>
-		</div>
-
-		<!-- Total -->
-		<div class="border-bottom">
-			<table>
-				<tr class="total-row">
-					<td>TOTAL</td>
-					<td class="text-right">$ <?= number_format((float) $total, 2, ',', '.') ?></td>
-				</tr>
-			</table>
-		</div>
-
-		<!-- CAE -->
-		<div class="text-center">
-			<p>CAE: <?= htmlspecialchars($cae) ?></p>
-			<p>Vto: <?= htmlspecialchars($cae_vencimiento) ?></p>
-		</div>
-
-		<!-- QR -->
+	<table class="bill-container">
+		<tr>
+			<td class="padding-b-3">
+				<p>Razón social: <?= htmlspecialchars($issuer['razon_social'] ?? '') ?></p>
+				<p>Direccion: <?= htmlspecialchars($issuer['domicilio'] ?? '') ?></p>
+				<p>C.U.I.T.: <?= htmlspecialchars($issuer['cuit'] ?? '') ?></p>
+				<p><?= htmlspecialchars(strtoupper($issuer['condicion_iva'] ?? 'RESPONSABLE INSCRIPTO')) ?></p>
+				<?php if (!empty($issuer['iibb'])): ?>
+				<p>IIBB: <?= htmlspecialchars($issuer['iibb']) ?></p>
+				<?php endif; ?>
+				<?php if (!empty($issuer['inicio_actividad'])): ?>
+				<p>Inicio de actividad: <?= htmlspecialchars($issuer['inicio_actividad']) ?></p>
+				<?php endif; ?>
+			</td>
+		</tr>
+		<tr>
+			<td class="border-top padding-t-3 padding-b-3">
+				<p class="text-center text-lg">FACTURA <?= htmlspecialchars($tipo_letra) ?></p>
+				<p class="text-center">Codigo <?= (int) $tipo_codigo ?></p>
+				<p>P.V: <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></p>
+				<p>Nro: <?= htmlspecialchars($comprobante['nro'] ?? '') ?></p>
+				<p>Fecha: <?= htmlspecialchars($comprobante['fecha'] ?? '') ?></p>
+				<p>Concepto: <?= htmlspecialchars($comprobante['concepto_texto'] ?? 'Productos') ?></p>
+			</td>
+		</tr>
+		<tr>
+			<td class="border-top padding-t-3 padding-b-3">
+				<p>A CONSUMIDOR FINAL</p>
+			</td>
+		</tr>
+		<tr>
+			<td class="border-top padding-t-3 padding-b-3">
+				<div>
+					<table>
+						<?php foreach ($items as $item): ?>
+						<tr>
+							<td><?= (int) ($item['quantity'] ?? $item['cantidad'] ?? 1) ?></td>
+							<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
+							<td><?= htmlspecialchars($item['taxRate'] ?? $item['iva_pct'] ?? '21') ?>%</td>
+							<td><?= number_format((float) ($item['unitPrice'] ?? $item['subtotal'] ?? 0), 2, ',', '.') ?></td>
+						</tr>
+						<?php endforeach; ?>
+					</table>
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td class="border-top padding-t-3 padding-b-3">
+				<div>
+					<table>
+						<tr>
+							<td>TOTAL</td>
+							<td><?= number_format((float) $total, 2, ',', '.') ?></td>
+						</tr>
+					</table>
+				</div>
+			</td>
+		</tr>
+		<tr>
+			<td class="border-top padding-t-3">
+				<p>CAE: <?= htmlspecialchars($cae) ?></p>
+				<p>Vto: <?= htmlspecialchars($cae_vencimiento) ?></p>
+			</td>
+		</tr>
 		<?php if ($qr_src !== ''): ?>
-		<div class="text-center">
-			<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" />
-		</div>
+		<tr class="text-center">
+			<td>
+				<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" />
+			</td>
+		</tr>
 		<?php endif; ?>
-
-		<!-- Footer -->
-		<div class="footer">
-			<?php if ($footer_text !== ''): ?>
-			<span><?= htmlspecialchars($footer_text) ?></span>
-			<?php endif; ?>
-			<?php if ($footer_logo_src !== ''): ?>
-			<img src="<?= htmlspecialchars($footer_logo_src) ?>" alt="" />
-			<?php endif; ?>
-		</div>
-	</div>
+		<tr class="bill-row row-details">
+			<td style="margin-bottom: 10px; text-align: center;">
+				<?php if ($footer_text !== ''): ?>
+				<span style="vertical-align: bottom;"><?= htmlspecialchars($footer_text) ?></span>
+				<?php endif; ?>
+				<?php if ($footer_logo_src !== ''): ?>
+				<img style="height: 20px; vertical-align: middle;" src="<?= htmlspecialchars($footer_logo_src) ?>" alt="" />
+				<?php endif; ?>
+			</td>
+		</tr>
+	</table>
 </body>
 </html>
