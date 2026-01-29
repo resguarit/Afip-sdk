@@ -45,11 +45,9 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 
 		.bill-container{
 			border-collapse: collapse;
-			max-width: 8cm;
-			position: absolute;
-			left:0;
-			right: 0;
-			margin: auto;
+			width: 70mm;
+			max-width: 70mm;
+			margin: 0 auto;
 			font-family: 'DejaVu Sans', monospace, sans-serif;
 			font-size: 12px;
 		}
