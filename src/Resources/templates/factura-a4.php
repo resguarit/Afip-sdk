@@ -2,7 +2,7 @@
 /**
  * Factura A4 - medidas hoja A4 (210×297mm), márgenes 20mm. Diseño referencia Empresa imaginaria S.A.
  * Variables: $issuer, $receiver, $comprobante, $items, $subtotal, $iva_total, $otros_tributos, $total,
- *            $cae, $cae_vencimiento, $qr_src, $tipo_letra, $condicion_venta,
+ *            $cae, $cae_vencimiento, $qr_src, $tipo_letra, $tipo_codigo, $condicion_venta,
  *            $periodo_desde, $periodo_hasta, $fecha_vto_pago
  */
 $issuer = $issuer ?? [];
@@ -17,6 +17,7 @@ $cae = $cae ?? '';
 $cae_vencimiento = $cae_vencimiento ?? '';
 $qr_src = $qr_src ?? '';
 $tipo_letra = $tipo_letra ?? 'B';
+$tipo_codigo = $tipo_codigo ?? 6;
 $condicion_venta = $condicion_venta ?? 'Efectivo';
 $fecha = $comprobante['fecha'] ?? '';
 $periodo_desde = $periodo_desde ?? $fecha;
@@ -36,7 +37,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		* { box-sizing: border-box; }
 		body {
 			font-family: Arial, Helvetica, sans-serif;
-			font-size: 13px;
+			font-size: 12px;
 			margin: 0;
 			padding: 0;
 			color: #000;
@@ -52,48 +53,38 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		.bill-container td { vertical-align: top; }
 		.bill-emitter-row td {
 			border-bottom: 1px solid #000;
-			padding: 10px 8px 10px 0;
+			padding: 6px 6px 6px 0;
 		}
-		.bill-emitter-row .col-emitter { width: 45%; text-align: left; }
-		.bill-emitter-row .col-type { width: 10%; text-align: center; vertical-align: middle; }
-		.bill-emitter-row .col-factura { width: 45%; text-align: left; padding-left: 12px; }
-		.bill-type-row td {
-			border-bottom: 1px solid #000;
-			padding: 8px 0 6px 0;
-			text-align: center;
-			vertical-align: middle;
-		}
-		.bill-type-row .type-inner {
-			display: table;
-			margin: 0 auto;
-			border-collapse: collapse;
-		}
-		.bill-type-row .type-inner .bill-type { margin-right: 10px; }
-		.bill-type-row .type-inner td { border: 0; padding: 0 5px; vertical-align: middle; }
+		.bill-emitter-row .col-emitter { width: 42%; text-align: left; font-size: 12px; }
+		.bill-emitter-row .col-type { width: 16%; text-align: center; vertical-align: middle; }
+		.bill-emitter-row .col-factura { width: 42%; text-align: left; padding-left: 8px; font-size: 12px; }
+		.emitter-name { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+		.bill-type-wrap { margin-bottom: 2px; }
 		.bill-type {
-			width: 60px;
-			height: 50px;
-			margin: 0 auto;
+			width: 44px;
+			height: 38px;
+			margin: 0 auto 2px auto;
 			border: 1px solid #000;
-			background-color: #fff;
+			background-color: #e5e5e5;
 			color: #000;
 			text-align: center;
-			font-size: 40px;
+			font-size: 28px;
 			font-weight: 600;
-			line-height: 50px;
+			line-height: 38px;
 			display: table;
 		}
 		.bill-type span { display: table-cell; vertical-align: middle; }
-		.text-lg { font-size: 30px; font-weight: bold; }
+		.type-codigo { font-size: 11px; }
+		.type-factura { font-size: 18px; font-weight: bold; }
 		.text-right { text-align: right; }
 		.bill-row td { padding: 0; border: 0; }
 		.bill-row td > .inner {
 			border-top: 1px solid #000;
 			border-bottom: 1px solid #000;
-			padding: 10px 0 13px 0;
+			padding: 6px 0 8px 0;
 		}
 		.row-details .inner,
-		.row-qrcode .inner { border: 0; padding: 10px 0 0 0; }
+		.row-qrcode .inner { border: 0; padding: 6px 0 0 0; }
 		.row-details table { border-collapse: collapse; width: 100%; }
 		.row-details table td {
 			border: 1px solid #000;
@@ -114,7 +105,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		.total-row .inner {
 			border-top: 2px solid #000;
 			border-bottom: 2px solid #000;
-			padding: 10px 0 13px 0;
+			padding: 6px 0 8px 0;
 		}
 		.totals-table { width: 100%; border-collapse: collapse; }
 		.totals-table td { padding: 4px 0; border: 0; }
@@ -131,50 +122,59 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		.period-row td:last-child { text-align: right; }
 		.recipient-row { width: 100%; border-collapse: collapse; }
 		.recipient-row td { padding: 2px 0; }
-		.recipient-row .c1 { width: 28%; }
-		.recipient-row .c2 { width: 72%; }
 		.recipient-row .half { width: 50%; }
-		.invoice-details table { width: 100%; border-collapse: collapse; }
-		.invoice-details td { padding: 2px 0; }
-		.invoice-details .pv { width: 50%; }
-		.invoice-details .cn { width: 50%; text-align: right; }
+		.invoice-details { width: 100%; border-collapse: collapse; }
+		.invoice-details td { padding: 1px 0; font-size: 12px; }
+		.invoice-details .lbl { width: 1%; white-space: nowrap; padding-right: 6px; }
+		.invoice-details .val { text-align: right; }
+		.recipient-row .c1 { width: 38%; }
+		.recipient-row .c2 { width: 62%; }
 	</style>
 </head>
 <body>
 	<table class="bill-container">
-		<!-- Tipo de comprobante arriba del todo: B + Factura centrados -->
-		<tr class="bill-type-row">
-			<td colspan="3">
-				<table class="type-inner" style="margin-left: auto; margin-right: auto;">
-					<tr>
-						<td><div class="bill-type"><span><?= htmlspecialchars($tipo_letra) ?></span></div></td>
-						<td><span class="text-lg">Factura</span></td>
-					</tr>
-				</table>
-			</td>
-		</tr>
-		<!-- Encabezado: emisor | espacio | Factura + datos -->
+		<!-- Encabezado estilo AFIP: emisor (izq) | B + FACTURA + Cod (centro) | datos comprobante (der) -->
 		<tr class="bill-emitter-row">
 			<td class="col-emitter">
-				<div class="text-lg"><?= htmlspecialchars($issuer['razon_social'] ?? '') ?></div>
+				<div class="emitter-name"><?= htmlspecialchars($issuer['razon_social'] ?? '') ?></div>
 				<p><strong>Razón social:</strong> <?= htmlspecialchars($issuer['razon_social'] ?? '') ?></p>
 				<p><strong>Domicilio Comercial:</strong> <?= htmlspecialchars($issuer['domicilio'] ?? '') ?></p>
 				<p><strong>Condición Frente al IVA:</strong> <?= htmlspecialchars($issuer['condicion_iva'] ?? 'Responsable inscripto') ?></p>
 			</td>
-			<td class="col-type"></td>
+			<td class="col-type">
+				<div class="bill-type-wrap"><div class="bill-type"><span><?= htmlspecialchars($tipo_letra) ?></span></div></div>
+				<div class="type-codigo">Cod. <?= str_pad((string) (int) $tipo_codigo, 3, '0', STR_PAD_LEFT) ?></div>
+				<div class="type-factura">FACTURA</div>
+			</td>
 			<td class="col-factura">
 				<table class="invoice-details">
 					<tr>
-						<td class="pv"><strong>Punto de Venta:</strong> <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></td>
-						<td class="cn"><strong>Comp. Nro:</strong> <?= htmlspecialchars($comprobante['nro'] ?? '') ?></td>
+						<td class="lbl"><strong>Punto de Venta:</strong></td>
+						<td class="val"><?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></td>
 					</tr>
-					<tr><td colspan="2"><strong>Fecha de Emisión:</strong> <?= htmlspecialchars($comprobante['fecha'] ?? '') ?></td></tr>
-					<tr><td colspan="2"><strong>CUIT:</strong> <?= htmlspecialchars($issuer['cuit'] ?? '') ?></td></tr>
+					<tr>
+						<td class="lbl"><strong>Comp. Nro:</strong></td>
+						<td class="val"><?= htmlspecialchars($comprobante['nro'] ?? '') ?></td>
+					</tr>
+					<tr>
+						<td class="lbl"><strong>Fecha de Emisión:</strong></td>
+						<td class="val"><?= htmlspecialchars($comprobante['fecha'] ?? '') ?></td>
+					</tr>
+					<tr>
+						<td class="lbl"><strong>CUIT:</strong></td>
+						<td class="val"><?= htmlspecialchars($issuer['cuit'] ?? '') ?></td>
+					</tr>
 					<?php if (!empty($issuer['iibb'])): ?>
-					<tr><td colspan="2"><strong>Ingresos Brutos:</strong> <?= htmlspecialchars($issuer['iibb']) ?></td></tr>
+					<tr>
+						<td class="lbl"><strong>Ingresos Brutos:</strong></td>
+						<td class="val"><?= htmlspecialchars($issuer['iibb']) ?></td>
+					</tr>
 					<?php endif; ?>
 					<?php if (!empty($issuer['inicio_actividad'])): ?>
-					<tr><td colspan="2"><strong>Fecha de Inicio de Actividades:</strong> <?= htmlspecialchars($issuer['inicio_actividad']) ?></td></tr>
+					<tr>
+						<td class="lbl"><strong>Fecha de Inicio de Actividades:</strong></td>
+						<td class="val"><?= htmlspecialchars($issuer['inicio_actividad']) ?></td>
+					</tr>
 					<?php endif; ?>
 				</table>
 			</td>
