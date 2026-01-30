@@ -109,10 +109,20 @@ class ReceiptRenderer
     private function buildTemplateData(array $invoice, InvoiceResponse $response, int $qrSize = 200): array
     {
         $fecha = $response->additionalData['CbteFch'] ?? $invoice['date'] ?? date('Ymd');
+        // Asegurar formato fecha para visualización (dd/mm/yyyy)
         if (strlen($fecha) === 8 && is_numeric($fecha)) {
             $fechaFormatted = substr($fecha, 6, 2) . '/' . substr($fecha, 4, 2) . '/' . substr($fecha, 0, 4);
+            $fechaQr = substr($fecha, 0, 4) . '-' . substr($fecha, 4, 2) . '-' . substr($fecha, 6, 2);
         } else {
-            $fechaFormatted = $fecha;
+            // Si viene con guiones o barras, intentar parsearlo
+            $ts = strtotime(str_replace('/', '-', $fecha));
+            if ($ts !== false) {
+                $fechaFormatted = date('d/m/Y', $ts);
+                $fechaQr = date('Y-m-d', $ts);
+            } else {
+                $fechaFormatted = $fecha;
+                $fechaQr = date('Y-m-d'); // Fallback hoy
+            }
         }
         $caeVto = $response->caeExpirationDate;
         if (strlen($caeVto) === 8 && is_numeric($caeVto)) {
@@ -127,7 +137,7 @@ class ReceiptRenderer
         $ctz = (float) ($invoice['cotizacionMoneda'] ?? $invoice['MonCotiz'] ?? 1);
 
         $qrParams = [
-            'fecha' => $fecha,
+            'fecha' => $fechaQr,
             'cuit' => $cuit,
             'ptoVta' => $response->pointOfSale,
             'tipoCmp' => $response->invoiceType,

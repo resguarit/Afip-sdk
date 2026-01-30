@@ -15,11 +15,12 @@ $qr_src = $qr_src ?? '';
 $tipo_letra = $tipo_letra ?? 'B';
 $tipo_codigo = $tipo_codigo ?? 6;
 $condicion_venta = $condicion_venta ?? 'Efectivo';
-$footer_text = $footer_text ?? 'Generado con Afip SDK';
-$footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
+$footer_text = $footer_text ?? '';
+$footer_logo_src = $footer_logo_src ?? '';
 ?>
 <!DOCTYPE html>
 <html>
+
 <head>
 	<meta charset="UTF-8">
 	<title>Ticket</title>
@@ -29,13 +30,15 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 			size: 80mm auto;
 			margin: 0;
 		}
-		html, body {
+
+		html,
+		body {
 			margin: 0;
 			padding: 0;
 			width: 80mm;
 		}
 
-		*{
+		* {
 			box-sizing: border-box;
 			-webkit-user-select: none;
 			-moz-user-select: none;
@@ -43,7 +46,7 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 			user-select: none;
 		}
 
-		.bill-container{
+		.bill-container {
 			border-collapse: collapse;
 			width: 70mm;
 			max-width: 70mm;
@@ -52,11 +55,11 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 			font-size: 12px;
 		}
 
-		.text-lg{
+		.text-lg {
 			font-size: 20px;
 		}
 
-		.text-center{
+		.text-center {
 			text-align: center;
 		}
 
@@ -72,7 +75,7 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 			width: 100%;
 		}
 
-		table table tr td:last-child{
+		table table tr td:last-child {
 			text-align: right;
 		}
 
@@ -89,6 +92,7 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 		}
 	</style>
 </head>
+
 <body>
 	<table class="bill-container">
 		<tr>
@@ -98,10 +102,10 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 				<p>C.U.I.T.: <?= htmlspecialchars($issuer['cuit'] ?? '') ?></p>
 				<p><?= htmlspecialchars(strtoupper($issuer['condicion_iva'] ?? 'RESPONSABLE INSCRIPTO')) ?></p>
 				<?php if (!empty($issuer['iibb'])): ?>
-				<p>IIBB: <?= htmlspecialchars($issuer['iibb']) ?></p>
+					<p>IIBB: <?= htmlspecialchars($issuer['iibb']) ?></p>
 				<?php endif; ?>
 				<?php if (!empty($issuer['inicio_actividad'])): ?>
-				<p>Inicio de actividad: <?= htmlspecialchars($issuer['inicio_actividad']) ?></p>
+					<p>Inicio de actividad: <?= htmlspecialchars($issuer['inicio_actividad']) ?></p>
 				<?php endif; ?>
 			</td>
 		</tr>
@@ -125,12 +129,13 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 				<div>
 					<table>
 						<?php foreach ($items as $item): ?>
-						<tr>
-							<td><?= (int) ($item['quantity'] ?? $item['cantidad'] ?? 1) ?></td>
-							<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
-							<td><?= htmlspecialchars($item['taxRate'] ?? $item['iva_pct'] ?? '21') ?>%</td>
-							<td><?= number_format((float) ($item['unitPrice'] ?? $item['subtotal'] ?? 0), 2, ',', '.') ?></td>
-						</tr>
+							<tr>
+								<td><?= (int) ($item['quantity'] ?? $item['cantidad'] ?? 1) ?></td>
+								<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
+								<td><?= htmlspecialchars($item['taxRate'] ?? $item['iva_pct'] ?? '21') ?>%</td>
+								<td><?= number_format((float) ($item['unitPrice'] ?? $item['subtotal'] ?? 0), 2, ',', '.') ?>
+								</td>
+							</tr>
 						<?php endforeach; ?>
 					</table>
 				</div>
@@ -155,22 +160,24 @@ $footer_logo_src = $footer_logo_src ?? 'https://afipsdk.com/faviconx32.png';
 			</td>
 		</tr>
 		<?php if ($qr_src !== ''): ?>
-		<tr class="text-center">
-			<td>
-				<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" />
-			</td>
-		</tr>
+			<tr class="text-center">
+				<td>
+					<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" />
+				</td>
+			</tr>
 		<?php endif; ?>
 		<tr class="bill-row row-details">
 			<td style="margin-bottom: 10px; text-align: center;">
 				<?php if ($footer_text !== ''): ?>
-				<span style="vertical-align: bottom;"><?= htmlspecialchars($footer_text) ?></span>
+					<span style="vertical-align: bottom;"><?= htmlspecialchars($footer_text) ?></span>
 				<?php endif; ?>
 				<?php if ($footer_logo_src !== ''): ?>
-				<img style="height: 20px; vertical-align: middle;" src="<?= htmlspecialchars($footer_logo_src) ?>" alt="" />
+					<img style="height: 20px; vertical-align: middle;" src="<?= htmlspecialchars($footer_logo_src) ?>"
+						alt="" />
 				<?php endif; ?>
 			</td>
 		</tr>
 	</table>
 </body>
+
 </html>
