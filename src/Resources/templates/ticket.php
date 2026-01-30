@@ -15,8 +15,6 @@ $qr_src = $qr_src ?? '';
 $tipo_letra = $tipo_letra ?? 'B';
 $tipo_codigo = $tipo_codigo ?? 6;
 $condicion_venta = $condicion_venta ?? 'Efectivo';
-$footer_text = $footer_text ?? '';
-$footer_logo_src = $footer_logo_src ?? '';
 ?>
 <!DOCTYPE html>
 <html>
@@ -166,17 +164,6 @@ $footer_logo_src = $footer_logo_src ?? '';
 				</td>
 			</tr>
 		<?php endif; ?>
-		<tr class="bill-row row-details">
-			<td style="margin-bottom: 10px; text-align: center;">
-				<?php if ($footer_text !== ''): ?>
-					<span style="vertical-align: bottom;"><?= htmlspecialchars($footer_text) ?></span>
-				<?php endif; ?>
-				<?php if ($footer_logo_src !== ''): ?>
-					<img style="height: 20px; vertical-align: middle;" src="<?= htmlspecialchars($footer_logo_src) ?>"
-						alt="" />
-				<?php endif; ?>
-			</td>
-		</tr>
 	</table>
 </body>
 
