@@ -67,7 +67,7 @@ class ReceiptRenderer
      * @param InvoiceResponse $response Respuesta de AFIP con CAE
      * @param int $qrSize Tamaño del QR en píxeles
      */
-    public function renderFacturaA4Html(array $invoice, InvoiceResponse $response, int $qrSize = 120): string
+    public function renderFacturaA4Html(array $invoice, InvoiceResponse $response, int $qrSize = 150): string
     {
         $data = $this->buildTemplateData($invoice, $response, $qrSize);
         $data['tipo_letra'] = self::TIPO_LETRAS[$response->invoiceType] ?? 'B';

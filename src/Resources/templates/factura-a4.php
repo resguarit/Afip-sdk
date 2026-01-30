@@ -113,7 +113,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		.totals-table .amount { text-align: right; font-weight: bold; width: 100px; }
 		.row-qrcode td { padding: 10px 10px 10px 0; }
 		.row-qrcode td:last-child { text-align: right; vertical-align: top; }
-		.qr-cell img { width: 120px; height: 120px; display: block; }
+		.qr-cell img { width: 150px; height: 150px; display: block; }
 		.margin-b-10 { margin-bottom: 10px; }
 		.period-row { width: 100%; border-collapse: collapse; }
 		.period-row td { padding: 2px 0; }
@@ -277,7 +277,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		<tr class="bill-row row-qrcode">
 			<td class="qr-cell">
 				<?php if ($qr_src !== ''): ?>
-				<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" width="120" height="120" />
+				<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" width="150" height="150" />
 				<?php endif; ?>
 			</td>
 			<td></td>
