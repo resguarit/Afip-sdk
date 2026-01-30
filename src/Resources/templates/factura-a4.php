@@ -1,9 +1,12 @@
 <?php
 /**
- * Factura A4 - medidas hoja A4 (210×297mm), márgenes 20mm. Diseño referencia Empresa imaginaria S.A.
+ * Factura A4 - medidas hoja A4 (210×297mm), márgenes 20mm.
+ * Soporta Factura A (desglose IVA) y Factura B/C (IVA contenido - Ley 27.743)
+ *
  * Variables: $issuer, $receiver, $comprobante, $items, $subtotal, $iva_total, $otros_tributos, $total,
  *            $cae, $cae_vencimiento, $qr_src, $tipo_letra, $tipo_codigo, $condicion_venta,
- *            $periodo_desde, $periodo_hasta, $fecha_vto_pago
+ *            $periodo_desde, $periodo_hasta, $fecha_vto_pago,
+ *            $es_factura_a, $es_factura_b, $es_factura_c, $iva_contenido, $importe_neto_gravado, $iva_desglose
  */
 $issuer = $issuer ?? [];
 $receiver = $receiver ?? [];
@@ -23,6 +26,13 @@ $fecha = $comprobante['fecha'] ?? '';
 $periodo_desde = $periodo_desde ?? $fecha;
 $periodo_hasta = $periodo_hasta ?? $fecha;
 $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
+// Datos específicos por tipo de factura
+$es_factura_a = $es_factura_a ?? false;
+$es_factura_b = $es_factura_b ?? true;
+$es_factura_c = $es_factura_c ?? false;
+$iva_contenido = $iva_contenido ?? 0;
+$importe_neto_gravado = $importe_neto_gravado ?? $subtotal;
+$iva_desglose = $iva_desglose ?? [];
 ?>
 <!DOCTYPE html>
 <html>
@@ -221,6 +231,42 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		<tr class="bill-row row-details">
 			<td colspan="3">
 				<div class="inner">
+					<?php if ($es_factura_a): ?>
+					<!-- FACTURA A: Tabla con desglose de IVA por ítem -->
+					<table>
+						<tr>
+							<td>Código</td>
+							<td>Producto / Servicio</td>
+							<td class="num">Cantidad</td>
+							<td class="num">U. Medida</td>
+							<td class="num">Precio Unit.</td>
+							<td class="num">% Bonif.</td>
+							<td class="num">Subtotal</td>
+							<td class="num">Alícuota IVA</td>
+							<td class="num">Subtotal c/IVA</td>
+						</tr>
+						<?php foreach ($items as $item):
+							$cant = (float) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
+							$pu = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+							$st = (float) ($item['subtotal_calc'] ?? $item['subtotal'] ?? ($cant * $pu));
+							$alicuota = (float) ($item['alicuota_iva'] ?? $item['taxRate'] ?? $item['iva_pct'] ?? 21);
+							$stConIva = (float) ($item['subtotal_con_iva'] ?? round($st * (1 + $alicuota / 100), 2));
+						?>
+						<tr>
+							<td><?= htmlspecialchars($item['code'] ?? $item['codigo'] ?? '-') ?></td>
+							<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
+							<td class="num"><?= number_format($cant, 2, ',', '.') ?></td>
+							<td class="num"><?= htmlspecialchars($item['unit'] ?? $item['unidad'] ?? 'unidades') ?></td>
+							<td class="num"><?= number_format($pu, 2, ',', '.') ?></td>
+							<td class="num">0,00</td>
+							<td class="num"><?= number_format($st, 2, ',', '.') ?></td>
+							<td class="num"><?= number_format($alicuota, 0) ?>%</td>
+							<td class="num"><?= number_format($stConIva, 2, ',', '.') ?></td>
+						</tr>
+						<?php endforeach; ?>
+					</table>
+					<?php else: ?>
+					<!-- FACTURA B/C: Tabla simplificada (precios con IVA incluido) -->
 					<table>
 						<tr>
 							<td>Código</td>
@@ -233,15 +279,15 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 							<td class="num">Subtotal</td>
 						</tr>
 						<?php foreach ($items as $item):
-							$cant = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
-							$pu = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
-							$st = isset($item['subtotal']) ? (float) $item['subtotal'] : ($cant * $pu);
+							$cant = (float) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
+							$pu = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+							$st = (float) ($item['subtotal_calc'] ?? $item['subtotal'] ?? ($cant * $pu));
 						?>
 						<tr>
 							<td><?= htmlspecialchars($item['code'] ?? $item['codigo'] ?? '-') ?></td>
 							<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
 							<td class="num"><?= number_format($cant, 2, ',', '.') ?></td>
-							<td class="num"><?= htmlspecialchars($item['unit'] ?? 'Unidad') ?></td>
+							<td class="num"><?= htmlspecialchars($item['unit'] ?? $item['unidad'] ?? 'unidades') ?></td>
 							<td class="num"><?= number_format($pu, 2, ',', '.') ?></td>
 							<td class="num">0,00</td>
 							<td class="num">0,00</td>
@@ -249,6 +295,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 						</tr>
 						<?php endforeach; ?>
 					</table>
+					<?php endif; ?>
 				</div>
 			</td>
 		</tr>
@@ -256,20 +303,60 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 		<tr class="bill-row total-row">
 			<td colspan="3">
 				<div class="inner">
+					<?php if ($es_factura_a): ?>
+					<!-- FACTURA A: Desglose de IVA por alícuota -->
 					<table class="totals-table">
 						<tr>
-							<td class="label"><strong>Subtotal: $</strong></td>
-							<td class="amount"><strong><?= number_format((float) $subtotal, 2, ',', '.') ?></strong></td>
+							<td class="label"><strong>Importe Neto Gravado: $</strong></td>
+							<td class="amount"><strong><?= number_format((float) $importe_neto_gravado, 2, ',', '.') ?></strong></td>
 						</tr>
+						<?php
+						// Alícuotas estándar AFIP en orden descendente
+						$alicuotasAfip = ['27.0' => '27%', '21.0' => '21%', '10.5' => '10,5%', '5.0' => '5%', '2.5' => '2,5%', '0.0' => '0%'];
+						foreach ($alicuotasAfip as $key => $label):
+							$valor = $iva_desglose[$key] ?? 0;
+						?>
+						<tr>
+							<td class="label"><strong>IVA <?= $label ?>: $</strong></td>
+							<td class="amount"><strong><?= number_format((float) $valor, 2, ',', '.') ?></strong></td>
+						</tr>
+						<?php endforeach; ?>
 						<tr>
 							<td class="label"><strong>Importe Otros Tributos: $</strong></td>
 							<td class="amount"><strong><?= number_format((float) $otros_tributos, 2, ',', '.') ?></strong></td>
 						</tr>
 						<tr>
-							<td class="label"><strong>Importe total: $</strong></td>
+							<td class="label"><strong>Importe Total: $</strong></td>
 							<td class="amount"><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
 						</tr>
 					</table>
+					<?php else: ?>
+					<!-- FACTURA B/C: IVA Contenido (Ley 27.743 - Régimen de Transparencia Fiscal) -->
+					<table class="totals-table">
+						<tr>
+							<td class="label"><strong>Subtotal: $</strong></td>
+							<td class="amount"><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
+						</tr>
+						<?php if ($otros_tributos > 0): ?>
+						<tr>
+							<td class="label"><strong>Importe Otros Tributos: $</strong></td>
+							<td class="amount"><strong><?= number_format((float) $otros_tributos, 2, ',', '.') ?></strong></td>
+						</tr>
+						<?php endif; ?>
+						<tr>
+							<td class="label"><strong>Importe Total: $</strong></td>
+							<td class="amount"><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
+						</tr>
+						<tr>
+							<td colspan="2" style="padding-top: 10px; border-top: 1px solid #ccc;">
+								<div style="font-size: 10px; color: #444;">
+									<strong>Régimen de Transparencia Fiscal al Consumidor (Ley 27.743)</strong><br>
+									IVA Contenido: $ <?= number_format((float) $iva_contenido, 2, ',', '.') ?>
+								</div>
+							</td>
+						</tr>
+					</table>
+					<?php endif; ?>
 				</div>
 			</td>
 		</tr>

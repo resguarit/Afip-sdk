@@ -163,6 +163,84 @@ class ReceiptRenderer
             $items = [['description' => 'Detalle', 'quantity' => 1, 'unitPrice' => $total - ($invoice['totalIva'] ?? 0), 'taxRate' => '21', 'subtotal' => $total]];
         }
 
+        // Determinar tipo de factura (A, B, C, M)
+        $tipoLetra = self::TIPO_LETRAS[$response->invoiceType] ?? 'B';
+        $esFacturaA = in_array($tipoLetra, ['A', 'M']);
+        $esFacturaB = $tipoLetra === 'B';
+        $esFacturaC = $tipoLetra === 'C';
+
+        // Calcular datos específicos según tipo de factura
+        $ivaContenido = 0.0;
+        $importeNetoGravado = 0.0;
+        $ivaDesglose = [];
+        $itemsProcessed = [];
+
+        if ($esFacturaB || $esFacturaC) {
+            // FACTURA B/C: IVA contenido (Ley 27.743 - Régimen de Transparencia Fiscal)
+            // El precio unitario YA INCLUYE IVA
+            // IVA contenido = total - (total / 1.21) para alícuota 21%
+            $ivaContenido = $this->calcularIvaContenido($items, $total);
+            $importeNetoGravado = $total; // En Factura B, subtotal = total
+
+            foreach ($items as $item) {
+                $cant = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
+                $pu = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+                $st = isset($item['subtotal']) ? (float) $item['subtotal'] : ($cant * $pu);
+
+                $itemsProcessed[] = array_merge($item, [
+                    'cantidad_calc' => $cant,
+                    'precio_unitario_calc' => $pu, // Precio CON IVA
+                    'subtotal_calc' => $st,
+                ]);
+            }
+        } else {
+            // FACTURA A: Desglose de IVA por alícuota
+            // El precio unitario es SIN IVA
+            $importeNetoGravado = (float) ($invoice['netAmount'] ?? $invoice['ImpNeto'] ?? 0);
+
+            foreach ($items as $item) {
+                $cant = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
+                $puSinIva = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+                $alicuota = (float) ($item['taxRate'] ?? $item['iva_pct'] ?? $item['alicuota'] ?? 21);
+                $subtotalSinIva = $cant * $puSinIva;
+                $ivaItem = round($subtotalSinIva * ($alicuota / 100), 2);
+                $subtotalConIva = round($subtotalSinIva + $ivaItem, 2);
+
+                // Agrupar IVA por alícuota
+                $alicuotaKey = number_format($alicuota, 1, '.', '');
+                if (!isset($ivaDesglose[$alicuotaKey])) {
+                    $ivaDesglose[$alicuotaKey] = 0.0;
+                }
+                $ivaDesglose[$alicuotaKey] += $ivaItem;
+
+                $itemsProcessed[] = array_merge($item, [
+                    'cantidad_calc' => $cant,
+                    'precio_unitario_calc' => $puSinIva, // Precio SIN IVA
+                    'subtotal_calc' => round($subtotalSinIva, 2),
+                    'alicuota_iva' => $alicuota,
+                    'iva_item' => $ivaItem,
+                    'subtotal_con_iva' => $subtotalConIva,
+                ]);
+            }
+
+            // Si no hay items procesados, usar datos de la factura directamente
+            if (empty($itemsProcessed) && $importeNetoGravado > 0) {
+                $ivaTotal = (float) ($invoice['totalIva'] ?? $invoice['ImpIVA'] ?? 0);
+                $ivaDesglose['21.0'] = $ivaTotal;
+            }
+
+            // Redondear valores del desglose
+            foreach ($ivaDesglose as $key => $value) {
+                $ivaDesglose[$key] = round($value, 2);
+            }
+
+            // Ordenar por alícuota descendente (27%, 21%, 10.5%, 5%, 2.5%, 0%)
+            krsort($ivaDesglose);
+        }
+
+        $ivaTotal = (float) ($invoice['totalIva'] ?? $invoice['ImpIVA'] ?? array_sum($ivaDesglose));
+        $otrosTributos = (float) ($invoice['tributesTotal'] ?? $invoice['ImpTrib'] ?? 0);
+
         return array_merge([
             'issuer' => [
                 'razon_social' => $invoice['issuer']['razon_social'] ?? 'Razón Social',
@@ -186,17 +264,50 @@ class ReceiptRenderer
                 'concepto' => $invoice['concept'] ?? 1,
                 'concepto_texto' => $this->conceptoTexto($invoice['concept'] ?? 1),
             ],
-            'items' => $items,
-            'subtotal' => $invoice['netAmount'] ?? $invoice['ImpNeto'] ?? $total - ($invoice['totalIva'] ?? 0),
-            'iva_total' => $invoice['totalIva'] ?? $invoice['ImpIVA'] ?? 0,
-            'otros_tributos' => $invoice['tributesTotal'] ?? $invoice['ImpTrib'] ?? 0,
+            'items' => !empty($itemsProcessed) ? $itemsProcessed : $items,
+            'subtotal' => $esFacturaB || $esFacturaC ? $total : $importeNetoGravado,
+            'iva_total' => $ivaTotal,
+            'otros_tributos' => $otrosTributos,
             'total' => $total,
             'cae' => $response->cae,
             'cae_vencimiento' => $caeVtoFormatted,
             'condicion_venta' => $invoice['condicion_venta'] ?? 'Efectivo',
             'qr_data_url' => $qrDataUrl,
             'qr_data_uri' => $qrDataUri,
+            // Datos específicos por tipo de factura
+            'es_factura_a' => $esFacturaA,
+            'es_factura_b' => $esFacturaB,
+            'es_factura_c' => $esFacturaC,
+            'iva_contenido' => round($ivaContenido, 2),
+            'importe_neto_gravado' => round($importeNetoGravado, 2),
+            'iva_desglose' => $ivaDesglose,
         ], $invoice);
+    }
+
+    /**
+     * Calcula el IVA contenido para Factura B/C (Ley 27.743).
+     * El IVA contenido se calcula sobre cada ítem según su alícuota.
+     */
+    private function calcularIvaContenido(array $items, float $total): float
+    {
+        if (empty($items)) {
+            // Fallback: asumir 21% si no hay items
+            return round($total - ($total / 1.21), 2);
+        }
+
+        $ivaContenido = 0.0;
+        foreach ($items as $item) {
+            $alicuota = (float) ($item['taxRate'] ?? $item['iva_pct'] ?? $item['alicuota'] ?? 21);
+            $cant = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
+            $pu = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+            $subtotal = isset($item['subtotal']) ? (float) $item['subtotal'] : ($cant * $pu);
+
+            // IVA contenido = subtotal - (subtotal / (1 + alicuota/100))
+            $divisor = 1 + ($alicuota / 100);
+            $ivaContenido += $subtotal - ($subtotal / $divisor);
+        }
+
+        return round($ivaContenido, 2);
     }
 
     private function conceptoTexto(int $concepto): string
