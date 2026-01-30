@@ -146,7 +146,7 @@ class ReceiptRenderer
             'moneda' => $moneda,
             'ctz' => $ctz,
             'tipoCodAut' => 'E',
-            'codAut' => $response->cae ?: ($invoice['codAut'] ?? ''),
+            'codAut' => $response->cae ?: ($invoice['codAut'] ?? $invoice['cae'] ?? $invoice['CAE'] ?? ''),
         ];
         if (!empty($invoice['customerDocumentType']) || !empty($invoice['DocTipo'])) {
             $qrParams['tipoDocRec'] = $invoice['customerDocumentType'] ?? $invoice['DocTipo'] ?? null;
