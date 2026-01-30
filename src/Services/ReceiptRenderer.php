@@ -17,10 +17,21 @@ class ReceiptRenderer
 {
     private const TIPO_LETRAS = [
         1 => 'A',
-        2 => 'A', 3 => 'A', 4 => 'A',
-        6 => 'B', 7 => 'B', 8 => 'B', 9 => 'B',
-        11 => 'C', 12 => 'C', 13 => 'C', 15 => 'C',
-        51 => 'M', 52 => 'M', 53 => 'M', 54 => 'M',
+        2 => 'A',
+        3 => 'A',
+        4 => 'A',
+        6 => 'B',
+        7 => 'B',
+        8 => 'B',
+        9 => 'B',
+        11 => 'C',
+        12 => 'C',
+        13 => 'C',
+        15 => 'C',
+        51 => 'M',
+        52 => 'M',
+        53 => 'M',
+        54 => 'M',
     ];
 
     private string $templatesPath;
@@ -125,7 +136,7 @@ class ReceiptRenderer
             'moneda' => $moneda,
             'ctz' => $ctz,
             'tipoCodAut' => 'E',
-            'codAut' => $response->cae,
+            'codAut' => $response->cae ?: ($invoice['codAut'] ?? ''),
         ];
         if (!empty($invoice['customerDocumentType']) || !empty($invoice['DocTipo'])) {
             $qrParams['tipoDocRec'] = $invoice['customerDocumentType'] ?? $invoice['DocTipo'] ?? null;
