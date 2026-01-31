@@ -32,9 +32,10 @@ $iva_desglose = $iva_desglose ?? [];
 	<style>
 		@page {
 			margin: 0;
+			padding: 0;
 			size: 80mm auto;
 		}
-		body {
+		html, body {
 			font-family: 'DejaVu Sans', sans-serif;
 			font-size: 9px;
 			margin: 0;
@@ -42,9 +43,10 @@ $iva_desglose = $iva_desglose ?? [];
 			color: #000;
 		}
 		.ticket-wrapper {
-			margin-left: 10mm;
-			width: 60mm;
-			max-width: 60mm;
+			margin: 0;
+			padding: 3mm 5mm 3mm 10mm;
+			width: 65mm;
+			max-width: 65mm;
 		}
 		table {
 			width: 100%;
