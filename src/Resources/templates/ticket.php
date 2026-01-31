@@ -1,6 +1,7 @@
 <?php
 /**
  * Ticket fiscal - igual a referencia (8cm, monospace 12px, líneas dashed)
+ * Soporta Factura A (desglose IVA) y Factura B/C (IVA contenido - Ley 27.743)
  */
 $issuer = $issuer ?? [];
 $receiver = $receiver ?? [];
@@ -15,6 +16,13 @@ $qr_src = $qr_src ?? '';
 $tipo_letra = $tipo_letra ?? 'B';
 $tipo_codigo = $tipo_codigo ?? 6;
 $condicion_venta = $condicion_venta ?? 'Efectivo';
+// Datos específicos por tipo de factura
+$es_factura_a = $es_factura_a ?? false;
+$es_factura_b = $es_factura_b ?? true;
+$es_factura_c = $es_factura_c ?? false;
+$iva_contenido = $iva_contenido ?? 0;
+$importe_neto_gravado = $importe_neto_gravado ?? $subtotal;
+$iva_desglose = $iva_desglose ?? [];
 ?>
 <!DOCTYPE html>
 <html>
@@ -126,13 +134,23 @@ $condicion_venta = $condicion_venta ?? 'Efectivo';
 			<td class="border-top padding-t-3 padding-b-3">
 				<div>
 					<table>
-						<?php foreach ($items as $item): ?>
+						<?php foreach ($items as $item):
+							$cant = (int) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
+							$desc = htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '');
+							$alicuota = (float) ($item['alicuota_iva'] ?? $item['taxRate'] ?? $item['iva_pct'] ?? 21);
+							if ($es_factura_a) {
+								// Factura A: mostrar precio sin IVA
+								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? 0);
+							} else {
+								// Factura B/C: mostrar precio con IVA
+								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['subtotal'] ?? 0);
+							}
+						?>
 							<tr>
-								<td><?= (int) ($item['quantity'] ?? $item['cantidad'] ?? 1) ?></td>
-								<td><?= htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '') ?></td>
-								<td><?= htmlspecialchars($item['taxRate'] ?? $item['iva_pct'] ?? '21') ?>%</td>
-								<td><?= number_format((float) ($item['unitPrice'] ?? $item['subtotal'] ?? 0), 2, ',', '.') ?>
-								</td>
+								<td><?= $cant ?></td>
+								<td><?= $desc ?></td>
+								<td><?= number_format($alicuota, 0) ?>%</td>
+								<td><?= number_format($precio, 2, ',', '.') ?></td>
 							</tr>
 						<?php endforeach; ?>
 					</table>
@@ -142,12 +160,41 @@ $condicion_venta = $condicion_venta ?? 'Efectivo';
 		<tr>
 			<td class="border-top padding-t-3 padding-b-3">
 				<div>
+					<?php if ($es_factura_a): ?>
+					<!-- FACTURA A: Desglose de IVA -->
 					<table>
 						<tr>
-							<td>TOTAL</td>
-							<td><?= number_format((float) $total, 2, ',', '.') ?></td>
+							<td>Neto Gravado</td>
+							<td><?= number_format((float) $importe_neto_gravado, 2, ',', '.') ?></td>
+						</tr>
+						<?php
+						$alicuotasAfip = ['27.0' => '27%', '21.0' => '21%', '10.5' => '10,5%', '5.0' => '5%', '2.5' => '2,5%', '0.0' => '0%'];
+						foreach ($alicuotasAfip as $key => $label):
+							$valor = $iva_desglose[$key] ?? 0;
+							if ($valor > 0):
+						?>
+						<tr>
+							<td>IVA <?= $label ?></td>
+							<td><?= number_format((float) $valor, 2, ',', '.') ?></td>
+						</tr>
+						<?php endif; endforeach; ?>
+						<tr>
+							<td><strong>TOTAL</strong></td>
+							<td><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
 						</tr>
 					</table>
+					<?php else: ?>
+					<!-- FACTURA B/C: IVA Contenido -->
+					<table>
+						<tr>
+							<td><strong>TOTAL</strong></td>
+							<td><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
+						</tr>
+					</table>
+					<p style="font-size: 10px; margin-top: 4px;">
+						Ley 27.743 - IVA Contenido: $<?= number_format((float) $iva_contenido, 2, ',', '.') ?>
+					</p>
+					<?php endif; ?>
 				</div>
 			</td>
 		</tr>
