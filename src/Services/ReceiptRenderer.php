@@ -195,16 +195,30 @@ class ReceiptRenderer
             }
         } else {
             // FACTURA A: Desglose de IVA por alícuota
-            // El precio unitario es SIN IVA
-            $importeNetoGravado = (float) ($invoice['netAmount'] ?? $invoice['ImpNeto'] ?? 0);
+            // El POS envía el precio CON IVA, el SDK calcula el precio SIN IVA
+            // Fórmula: precio_sin_iva = precio_con_iva / (1 + alicuota/100)
+            $sumatoriaNetoGravado = 0.0;
 
             foreach ($items as $item) {
                 $cant = (float) ($item['quantity'] ?? $item['cantidad'] ?? 1);
-                $puSinIva = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
+                $puConIva = (float) ($item['unitPrice'] ?? $item['precio_unitario'] ?? 0);
                 $alicuota = (float) ($item['taxRate'] ?? $item['iva_pct'] ?? $item['alicuota'] ?? 21);
-                $subtotalSinIva = $cant * $puSinIva;
+                
+                // Calcular precio unitario SIN IVA
+                $divisor = 1 + ($alicuota / 100);
+                $puSinIva = round($puConIva / $divisor, 2);
+                
+                // Subtotal SIN IVA = precio unitario sin IVA × cantidad
+                $subtotalSinIva = round($puSinIva * $cant, 2);
+                
+                // IVA del ítem
                 $ivaItem = round($subtotalSinIva * ($alicuota / 100), 2);
+                
+                // Subtotal CON IVA = subtotal sin IVA + IVA (debería ser igual al precio original × cantidad)
                 $subtotalConIva = round($subtotalSinIva + $ivaItem, 2);
+                
+                // Acumular neto gravado
+                $sumatoriaNetoGravado += $subtotalSinIva;
 
                 // Agrupar IVA por alícuota
                 $alicuotaKey = number_format($alicuota, 1, '.', '');
@@ -215,17 +229,21 @@ class ReceiptRenderer
 
                 $itemsProcessed[] = array_merge($item, [
                     'cantidad_calc' => $cant,
-                    'precio_unitario_calc' => $puSinIva, // Precio SIN IVA
-                    'subtotal_calc' => round($subtotalSinIva, 2),
+                    'precio_unitario_calc' => $puSinIva, // Precio SIN IVA (calculado)
+                    'subtotal_calc' => $subtotalSinIva,  // Subtotal SIN IVA
                     'alicuota_iva' => $alicuota,
                     'iva_item' => $ivaItem,
                     'subtotal_con_iva' => $subtotalConIva,
                 ]);
             }
 
+            // Usar el neto gravado calculado de los items
+            $importeNetoGravado = round($sumatoriaNetoGravado, 2);
+
             // Si no hay items procesados, usar datos de la factura directamente
-            if (empty($itemsProcessed) && $importeNetoGravado > 0) {
+            if (empty($itemsProcessed) && $total > 0) {
                 $ivaTotal = (float) ($invoice['totalIva'] ?? $invoice['ImpIVA'] ?? 0);
+                $importeNetoGravado = round($total - $ivaTotal, 2);
                 $ivaDesglose['21.0'] = $ivaTotal;
             }
 
