@@ -137,7 +137,6 @@ $iva_desglose = $iva_desglose ?? [];
 						<?php foreach ($items as $item):
 							$cant = (int) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
 							$desc = htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '');
-							$alicuota = (float) ($item['alicuota_iva'] ?? $item['taxRate'] ?? $item['iva_pct'] ?? 21);
 							if ($es_factura_a) {
 								// Factura A: mostrar precio sin IVA
 								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? 0);
@@ -148,16 +147,7 @@ $iva_desglose = $iva_desglose ?? [];
 								$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
 							}
 						?>
-							<?php if ($es_factura_a): ?>
-							<!-- Factura A: Cantidad | Descripción | Alícuota | Precio -->
-							<tr>
-								<td><?= $cant ?></td>
-								<td><?= $desc ?></td>
-								<td><?= number_format($alicuota, 0) ?>%</td>
-								<td><?= number_format($precio, 2, ',', '.') ?></td>
-							</tr>
-							<?php else: ?>
-							<!-- Factura B/C: Descripción en una línea, Cantidad | Unitario | Importe en otra -->
+							<!-- Descripción en una línea, Cantidad | Unitario | Importe en otra -->
 							<tr>
 								<td colspan="4" style="padding-top: 4px;"><strong><?= $desc ?></strong></td>
 							</tr>
@@ -167,7 +157,6 @@ $iva_desglose = $iva_desglose ?? [];
 								<td></td>
 								<td><?= number_format($subtotalItem, 2, ',', '.') ?></td>
 							</tr>
-							<?php endif; ?>
 						<?php endforeach; ?>
 					</table>
 				</div>
