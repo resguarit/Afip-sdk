@@ -141,17 +141,33 @@ $iva_desglose = $iva_desglose ?? [];
 							if ($es_factura_a) {
 								// Factura A: mostrar precio sin IVA
 								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? 0);
+								$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
 							} else {
 								// Factura B/C: mostrar precio con IVA
 								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['subtotal'] ?? 0);
+								$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
 							}
 						?>
+							<?php if ($es_factura_a): ?>
+							<!-- Factura A: Cantidad | Descripción | Alícuota | Precio -->
 							<tr>
 								<td><?= $cant ?></td>
 								<td><?= $desc ?></td>
 								<td><?= number_format($alicuota, 0) ?>%</td>
 								<td><?= number_format($precio, 2, ',', '.') ?></td>
 							</tr>
+							<?php else: ?>
+							<!-- Factura B/C: Descripción en una línea, Cantidad | Unitario | Importe en otra -->
+							<tr>
+								<td colspan="4" style="padding-top: 4px;"><strong><?= $desc ?></strong></td>
+							</tr>
+							<tr>
+								<td><?= $cant ?></td>
+								<td><?= number_format($precio, 2, ',', '.') ?></td>
+								<td></td>
+								<td><?= number_format($subtotalItem, 2, ',', '.') ?></td>
+							</tr>
+							<?php endif; ?>
 						<?php endforeach; ?>
 					</table>
 				</div>
