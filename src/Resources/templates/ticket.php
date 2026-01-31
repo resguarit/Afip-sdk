@@ -1,6 +1,6 @@
 <?php
 /**
- * Ticket fiscal - igual a referencia (8cm, monospace 12px, líneas dashed)
+ * Ticket fiscal - 80mm con margen izquierdo 10mm, contenido 60mm
  * Soporta Factura A (desglose IVA) y Factura B/C (IVA contenido - Ley 27.743)
  */
 $issuer = $issuer ?? [];
@@ -25,210 +25,258 @@ $importe_neto_gravado = $importe_neto_gravado ?? $subtotal;
 $iva_desglose = $iva_desglose ?? [];
 ?>
 <!DOCTYPE html>
-<html>
-
+<html lang="es">
 <head>
 	<meta charset="UTF-8">
 	<title>Ticket</title>
-	<style type="text/css">
-		/* IMPORTANTE: @page para Dompdf */
+	<style>
 		@page {
-			size: 80mm auto;
 			margin: 0;
+			size: 80mm auto;
 		}
-
-		html,
 		body {
+			font-family: 'DejaVu Sans', sans-serif;
+			font-size: 9px;
 			margin: 0;
 			padding: 0;
-			width: 80mm;
+			color: #000;
 		}
-
-		* {
-			box-sizing: border-box;
-			-webkit-user-select: none;
-			-moz-user-select: none;
-			-ms-user-select: none;
-			user-select: none;
+		.ticket-wrapper {
+			margin-left: 10mm;
+			width: 60mm;
+			max-width: 60mm;
 		}
-
-		.bill-container {
+		table {
+			width: 100%;
 			border-collapse: collapse;
-			width: 70mm;
-			max-width: 70mm;
-			margin: 0 auto;
-			font-family: 'DejaVu Sans', monospace, sans-serif;
-			font-size: 12px;
 		}
-
-		.text-lg {
-			font-size: 20px;
+		td {
+			padding: 1px 0;
+			vertical-align: top;
+			white-space: normal;
+			word-wrap: break-word;
+			overflow: visible;
 		}
-
-		.text-center {
+		.center { text-align: center; }
+		.right { text-align: right; }
+		.left { text-align: left; }
+		.bold { font-weight: bold; }
+		.mono {
+			font-family: 'DejaVu Sans Mono', monospace;
+			font-size: 9px;
+		}
+		.header-title {
+			font-size: 11px;
+			font-weight: bold;
+			text-transform: uppercase;
 			text-align: center;
 		}
-
-		#qrcode {
-			width: 75%
+		.header-info {
+			font-size: 8px;
+			text-align: center;
 		}
-
-		p {
-			margin: 2px 0;
+		.divider {
+			border-bottom: 1px dashed #000;
+			margin: 3px 0;
+			width: 100%;
+			display: block;
 		}
-
-		table table {
+		.prod-desc {
+			font-size: 9px;
+			font-weight: bold;
+			padding-top: 3px;
+			display: block;
 			width: 100%;
 		}
-
-		table table tr td:last-child {
-			text-align: right;
+		.total-row {
+			font-size: 12px;
+			font-weight: bold;
+			padding-top: 5px;
 		}
-
-		.border-top {
-			border-top: 1px dashed;
+		.factura-tipo {
+			font-size: 14px;
+			font-weight: bold;
+			text-align: center;
+			margin: 5px 0;
 		}
-
-		.padding-b-3 {
-			padding-bottom: 3px;
+		.factura-codigo {
+			font-size: 8px;
+			text-align: center;
 		}
-
-		.padding-t-3 {
-			padding-top: 3px;
+		.info-fiscal {
+			font-size: 8px;
+		}
+		.iva-info {
+			font-size: 8px;
+			margin-top: 3px;
 		}
 	</style>
 </head>
-
 <body>
-	<table class="bill-container">
-		<tr>
-			<td class="padding-b-3">
-				<p>Razón social: <?= htmlspecialchars($issuer['razon_social'] ?? '') ?></p>
-				<p>Direccion: <?= htmlspecialchars($issuer['domicilio'] ?? '') ?></p>
-				<p>C.U.I.T.: <?= htmlspecialchars($issuer['cuit'] ?? '') ?></p>
-				<p><?= htmlspecialchars(strtoupper($issuer['condicion_iva'] ?? 'RESPONSABLE INSCRIPTO')) ?></p>
-				<?php if (!empty($issuer['iibb'])): ?>
-					<p>IIBB: <?= htmlspecialchars($issuer['iibb']) ?></p>
-				<?php endif; ?>
-				<?php if (!empty($issuer['inicio_actividad'])): ?>
-					<p>Inicio de actividad: <?= htmlspecialchars($issuer['inicio_actividad']) ?></p>
-				<?php endif; ?>
-			</td>
-		</tr>
-		<tr>
-			<td class="border-top padding-t-3 padding-b-3">
-				<p class="text-center text-lg">FACTURA <?= htmlspecialchars($tipo_letra) ?></p>
-				<p class="text-center">Codigo <?= (int) $tipo_codigo ?></p>
-				<p>P.V: <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></p>
-				<p>Nro: <?= htmlspecialchars($comprobante['nro'] ?? '') ?></p>
-				<p>Fecha: <?= htmlspecialchars($comprobante['fecha'] ?? '') ?></p>
-				<p>Concepto: <?= htmlspecialchars($comprobante['concepto_texto'] ?? 'Productos') ?></p>
-			</td>
-		</tr>
-		<tr>
-			<td class="border-top padding-t-3 padding-b-3">
-				<p><?= htmlspecialchars(strtoupper($receiver['condicion_iva'] ?? 'Consumidor final')) ?></p>
-			</td>
-		</tr>
-		<tr>
-			<td class="border-top padding-t-3 padding-b-3">
-				<div>
-					<table>
-						<?php foreach ($items as $item):
-							$cant = (int) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
-							$desc = htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '');
-							$alicuota = (float) ($item['alicuota_iva'] ?? $item['taxRate'] ?? $item['iva_pct'] ?? 21);
-							if ($es_factura_a) {
-								// Factura A: mostrar precio sin IVA
-								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? 0);
-								$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
-							} else {
-								// Factura B/C: mostrar precio con IVA
-								$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['subtotal'] ?? 0);
-								$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
-							}
-						?>
-							<!-- Descripción en una línea -->
-							<tr>
-								<td colspan="4" style="padding-top: 4px;"><strong><?= $desc ?></strong></td>
-							</tr>
-							<?php if ($es_factura_a): ?>
-							<!-- Factura A: Cantidad | Unitario | IVA | Importe -->
-							<tr>
-								<td><?= $cant ?></td>
-								<td><?= number_format($precio, 2, ',', '.') ?></td>
-								<td><?= number_format($alicuota, 0) ?>%</td>
-								<td><?= number_format($subtotalItem, 2, ',', '.') ?></td>
-							</tr>
-							<?php else: ?>
-							<!-- Factura B/C: Cantidad | Unitario | Importe (sin IVA) -->
-							<tr>
-								<td><?= $cant ?></td>
-								<td><?= number_format($precio, 2, ',', '.') ?></td>
-								<td></td>
-								<td><?= number_format($subtotalItem, 2, ',', '.') ?></td>
-							</tr>
-							<?php endif; ?>
-						<?php endforeach; ?>
-					</table>
-				</div>
-			</td>
-		</tr>
-		<tr>
-			<td class="border-top padding-t-3 padding-b-3">
-				<div>
-					<?php if ($es_factura_a): ?>
-					<!-- FACTURA A: Desglose de IVA -->
-					<table>
-						<tr>
-							<td>Neto Gravado</td>
-							<td><?= number_format((float) $importe_neto_gravado, 2, ',', '.') ?></td>
-						</tr>
-						<?php
-						$alicuotasAfip = ['27.0' => '27%', '21.0' => '21%', '10.5' => '10,5%', '5.0' => '5%', '2.5' => '2,5%', '0.0' => '0%'];
-						foreach ($alicuotasAfip as $key => $label):
-							$valor = $iva_desglose[$key] ?? 0;
-							if ($valor > 0):
-						?>
-						<tr>
-							<td>IVA <?= $label ?></td>
-							<td><?= number_format((float) $valor, 2, ',', '.') ?></td>
-						</tr>
-						<?php endif; endforeach; ?>
-						<tr>
-							<td><strong>TOTAL</strong></td>
-							<td><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
-						</tr>
-					</table>
-					<?php else: ?>
-					<!-- FACTURA B/C: IVA Contenido -->
-					<table>
-						<tr>
-							<td><strong>TOTAL</strong></td>
-							<td><strong><?= number_format((float) $total, 2, ',', '.') ?></strong></td>
-						</tr>
-					</table>
-					<p style="font-size: 10px; margin-top: 4px;">
-						Ley 27.743 - IVA Contenido: $<?= number_format((float) $iva_contenido, 2, ',', '.') ?>
-					</p>
-					<?php endif; ?>
-				</div>
-			</td>
-		</tr>
-		<tr>
-			<td class="border-top padding-t-3">
-				<p>CAE: <?= htmlspecialchars($cae) ?></p>
-				<p>Vto: <?= htmlspecialchars($cae_vencimiento) ?></p>
-			</td>
-		</tr>
-		<?php if ($qr_src !== ''): ?>
-			<tr class="text-center">
-				<td>
-					<img id="qrcode" src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" />
-				</td>
-			</tr>
+	<div class="ticket-wrapper">
+		<!-- ENCABEZADO EMISOR -->
+		<div class="header-title"><?= htmlspecialchars($issuer['razon_social'] ?? '') ?></div>
+		<div class="header-info">
+			<?= htmlspecialchars($issuer['domicilio'] ?? '') ?>
+		</div>
+		<div class="header-info">
+			CUIT: <?= htmlspecialchars($issuer['cuit'] ?? '') ?>
+		</div>
+		<div class="header-info">
+			<?= htmlspecialchars(strtoupper($issuer['condicion_iva'] ?? 'RESPONSABLE INSCRIPTO')) ?>
+		</div>
+		<?php if (!empty($issuer['iibb'])): ?>
+		<div class="header-info">IIBB: <?= htmlspecialchars($issuer['iibb']) ?></div>
 		<?php endif; ?>
-	</table>
-</body>
+		<?php if (!empty($issuer['inicio_actividad'])): ?>
+		<div class="header-info">Inicio Act.: <?= htmlspecialchars($issuer['inicio_actividad']) ?></div>
+		<?php endif; ?>
 
+		<div class="divider"></div>
+
+		<!-- TIPO DE COMPROBANTE -->
+		<div class="factura-tipo">FACTURA <?= htmlspecialchars($tipo_letra) ?></div>
+		<div class="factura-codigo">Código <?= str_pad((string)(int)$tipo_codigo, 2, '0', STR_PAD_LEFT) ?></div>
+
+		<table style="font-size: 9px; margin-top: 3px;">
+			<tr>
+				<td class="left">P.V: <?= htmlspecialchars($comprobante['pto_vta'] ?? '') ?></td>
+				<td class="right">Nro: <?= htmlspecialchars($comprobante['nro'] ?? '') ?></td>
+			</tr>
+			<tr>
+				<td class="left" colspan="2">Fecha: <?= htmlspecialchars($comprobante['fecha'] ?? '') ?></td>
+			</tr>
+		</table>
+
+		<div class="divider"></div>
+
+		<!-- RECEPTOR -->
+		<div class="info-fiscal">
+			<?= htmlspecialchars(strtoupper($receiver['condicion_iva'] ?? 'CONSUMIDOR FINAL')) ?>
+			<?php if (!empty($receiver['nombre']) && $receiver['nombre'] !== 'Consumidor Final'): ?>
+			<br><?= htmlspecialchars($receiver['nombre']) ?>
+			<?php endif; ?>
+			<?php if (!empty($receiver['nro_doc']) && $receiver['nro_doc'] !== '0'): ?>
+			<br>Doc: <?= htmlspecialchars($receiver['nro_doc']) ?>
+			<?php endif; ?>
+		</div>
+
+		<div class="divider"></div>
+
+		<!-- ENCABEZADO ITEMS -->
+		<?php if ($es_factura_a): ?>
+		<table style="font-size: 8px; font-weight: bold; margin-bottom: 2px;">
+			<tr>
+				<td style="width: 12%;" class="left">CANT</td>
+				<td style="width: 33%;" class="left">P.UNIT</td>
+				<td style="width: 15%;" class="center">IVA</td>
+				<td style="width: 40%;" class="right">IMPORTE</td>
+			</tr>
+		</table>
+		<?php else: ?>
+		<table style="font-size: 8px; font-weight: bold; margin-bottom: 2px;">
+			<tr>
+				<td style="width: 15%;" class="left">CANT</td>
+				<td style="width: 40%;" class="left">P.UNIT</td>
+				<td style="width: 45%;" class="right">IMPORTE</td>
+			</tr>
+		</table>
+		<?php endif; ?>
+
+		<!-- ITEMS -->
+		<?php foreach ($items as $item):
+			$cant = (float) ($item['cantidad_calc'] ?? $item['quantity'] ?? $item['cantidad'] ?? 1);
+			$desc = htmlspecialchars($item['description'] ?? $item['descripcion'] ?? '');
+			$alicuota = (float) ($item['alicuota_iva'] ?? $item['taxRate'] ?? $item['iva_pct'] ?? 21);
+			if ($es_factura_a) {
+				$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? 0);
+				$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
+			} else {
+				$precio = (float) ($item['precio_unitario_calc'] ?? $item['unitPrice'] ?? $item['subtotal'] ?? 0);
+				$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
+			}
+		?>
+		<div class="prod-desc"><?= $desc ?></div>
+		<?php if ($es_factura_a): ?>
+		<table class="mono">
+			<tr>
+				<td style="width: 12%;" class="left"><?= number_format($cant, 0) ?></td>
+				<td style="width: 33%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
+				<td style="width: 15%;" class="center"><?= number_format($alicuota, 0) ?>%</td>
+				<td style="width: 40%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
+			</tr>
+		</table>
+		<?php else: ?>
+		<table class="mono">
+			<tr>
+				<td style="width: 15%;" class="left"><?= number_format($cant, 0) ?></td>
+				<td style="width: 40%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
+				<td style="width: 45%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
+			</tr>
+		</table>
+		<?php endif; ?>
+		<?php endforeach; ?>
+
+		<div class="divider"></div>
+
+		<!-- TOTALES -->
+		<?php if ($es_factura_a): ?>
+		<!-- FACTURA A: Desglose de IVA -->
+		<table style="font-size: 10px;">
+			<tr>
+				<td class="right">Neto Gravado:</td>
+				<td class="right mono">$<?= number_format((float) $importe_neto_gravado, 2, ',', '.') ?></td>
+			</tr>
+			<?php
+			$alicuotasAfip = ['27.0' => '27%', '21.0' => '21%', '10.5' => '10,5%', '5.0' => '5%', '2.5' => '2,5%', '0.0' => '0%'];
+			foreach ($alicuotasAfip as $key => $label):
+				$valor = $iva_desglose[$key] ?? 0;
+				if ($valor > 0):
+			?>
+			<tr>
+				<td class="right">IVA <?= $label ?>:</td>
+				<td class="right mono">$<?= number_format((float) $valor, 2, ',', '.') ?></td>
+			</tr>
+			<?php endif; endforeach; ?>
+			<tr class="total-row">
+				<td class="right">TOTAL:</td>
+				<td class="right mono">$<?= number_format((float) $total, 2, ',', '.') ?></td>
+			</tr>
+		</table>
+		<?php else: ?>
+		<!-- FACTURA B/C: Total + IVA Contenido -->
+		<table style="font-size: 10px;">
+			<tr class="total-row">
+				<td class="right">TOTAL:</td>
+				<td class="right mono">$<?= number_format((float) $total, 2, ',', '.') ?></td>
+			</tr>
+		</table>
+		<div class="iva-info">
+			Ley 27.743 - IVA Contenido: $<?= number_format((float) $iva_contenido, 2, ',', '.') ?>
+		</div>
+		<?php endif; ?>
+
+		<div class="divider"></div>
+
+		<!-- CAE -->
+		<table style="font-size: 9px;">
+			<tr>
+				<td class="left bold">CAE:</td>
+				<td class="right mono"><?= htmlspecialchars($cae) ?></td>
+			</tr>
+			<tr>
+				<td class="left bold">Vto CAE:</td>
+				<td class="right mono"><?= htmlspecialchars($cae_vencimiento) ?></td>
+			</tr>
+		</table>
+
+		<!-- QR -->
+		<?php if ($qr_src !== ''): ?>
+		<div class="center" style="margin-top: 5px;">
+			<img src="<?= htmlspecialchars($qr_src) ?>" alt="QR AFIP" style="width: 70%; max-width: 45mm;" />
+		</div>
+		<?php endif; ?>
+
+	</div>
+</body>
 </html>
