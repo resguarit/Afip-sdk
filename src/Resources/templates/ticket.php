@@ -44,7 +44,7 @@ $iva_desglose = $iva_desglose ?? [];
 		}
 		.ticket-wrapper {
 			margin: 0;
-			padding: 3mm 5mm 3mm 10mm;
+			padding: 35mm 5mm 3mm 10mm;
 			width: 65mm;
 			max-width: 65mm;
 		}
