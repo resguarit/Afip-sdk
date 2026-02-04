@@ -60,6 +60,32 @@ La tabla oficial completa y actualizada se descarga desde AFIP:
 - **Responsable Inscripto (IVA):** suele usar tipos A, B, M y FCE A/B (ej. 1, 6, 51, 201, 206).
 - **Monotributista / Exento:** suele usar tipos C y FCE C (ej. 11, 12, 13, 15, 211, 212, 213).
 
+---
+
+## Reglas de emisión: tipo de comprobante y receptor
+
+El SDK valida que la combinación **tipo de comprobante + condición IVA del receptor** sea correcta:
+
+```
+┌─────────────────────┬─────────────────────────────────────────────────────┐
+│                     │                    RECEPTOR                         │
+│      EMISOR         ├─────────────────┬─────────────────┬─────────────────┤
+│                     │ CF / Exento     │ Monotributista  │ Resp. Inscripto │
+├─────────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Resp. Inscripto     │ Factura B       │ Factura A       │ Factura A       │
+├─────────────────────┼─────────────────┼─────────────────┼─────────────────┤
+│ Monotrib. / Exento  │ Factura C       │ Factura C       │ Factura C       │
+└─────────────────────┴─────────────────┴─────────────────┴─────────────────┘
+```
+
+| Comprobante | Emisor | Receptores permitidos |
+|-------------|--------|----------------------|
+| **Factura A** (1, 2, 3) | RI | RI o Monotributista |
+| **Factura B** (6, 7, 8) | RI | Consumidor Final o Exento |
+| **Factura C** (11, 12, 13) | Monotributista/Exento | Cualquier receptor |
+
+Si se envía una combinación inválida (ej. Factura A a consumidor final), el SDK lanza `AfipValidationException` antes de llamar a AFIP.
+
 Los tipos habilitados para cada CUIT se pueden consultar con el SDK:
 
 ```php

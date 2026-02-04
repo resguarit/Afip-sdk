@@ -4,10 +4,22 @@ declare(strict_types=1);
 
 namespace Resguar\AfipSdk\Helpers;
 
+use Resguar\AfipSdk\Exceptions\AfipValidationException;
+
 /**
  * Helper para mapear datos de comprobante al formato requerido por AFIP
  *
- * Convierte el formato interno del SDK al formato que espera el Web Service WSFE
+ * Convierte el formato interno del SDK al formato que espera el Web Service WSFE.
+ *
+ * ┌─────────────────────┬─────────────────────────────────────────────────────┐
+ * │                     │                    RECEPTOR                         │
+ * │      EMISOR         ├─────────────────┬─────────────────┬─────────────────┤
+ * │                     │ CF / Exento     │ Monotributista  │ Resp. Inscripto │
+ * ├─────────────────────┼─────────────────┼─────────────────┼─────────────────┤
+ * │ Resp. Inscripto     │ Factura B       │ Factura A       │ Factura A       │
+ * ├─────────────────────┼─────────────────┼─────────────────┼─────────────────┤
+ * │ Monotrib. / Exento  │ Factura C       │ Factura C       │ Factura C       │
+ * └─────────────────────┴─────────────────┴─────────────────┴─────────────────┘
  */
 class InvoiceMapper
 {
@@ -61,6 +73,39 @@ class InvoiceMapper
     public const CONCEPTO_SERVICIOS = 2;
     public const CONCEPTO_PRODUCTOS_Y_SERVICIOS = 3;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // REGLAS DE VALIDACIÓN: Receptores permitidos por tipo de comprobante
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    /** Factura A: RI emite a RI o Monotributista */
+    private const RECEPTORES_FACTURA_A = [
+        self::CONDICION_IVA_RESPONSABLE_INSCRIPTO,
+        self::CONDICION_IVA_MONOTRIBUTO,
+        self::CONDICION_IVA_MONOTRIBUTO_SOCIAL,
+    ];
+
+    /** Factura B: RI emite a Consumidor Final o Exento */
+    private const RECEPTORES_FACTURA_B = [
+        self::CONDICION_IVA_CONSUMIDOR_FINAL,
+        self::CONDICION_IVA_EXENTO,
+    ];
+
+    // Nota: Factura C no tiene restricción de receptor (Mono/Exento puede emitir a cualquiera)
+
+    /**
+     * Valida que tipo de comprobante + condición IVA del receptor cumplan las reglas AFIP.
+     * Útil para validar antes de realizar llamadas a la API.
+     *
+     * @param array $invoice Datos del comprobante
+     * @throws AfipValidationException Si la combinación es inválida
+     */
+    public static function validateInvoice(array $invoice): void
+    {
+        $invoiceType = (int) ($invoice['invoiceType'] ?? self::COMPROBANTE_FACTURA_B);
+        $condicionReceptor = self::resolveCondicionIvaReceptor($invoice, $invoiceType);
+        self::validateInvoiceTypeAndReceiver($invoiceType, $condicionReceptor);
+    }
+
     /**
      * Mapea los datos del comprobante al formato FeCAERequest de AFIP
      *
@@ -71,6 +116,9 @@ class InvoiceMapper
     public static function toFeCAERequest(array $invoice, string $cuit): array
     {
         $invoiceType = (int) ($invoice['invoiceType'] ?? self::COMPROBANTE_FACTURA_B);
+        $condicionReceptor = self::resolveCondicionIvaReceptor($invoice, $invoiceType);
+
+        self::validateInvoiceTypeAndReceiver($invoiceType, $condicionReceptor);
 
         $feCabReq = self::buildFeCabReq($invoice, $invoiceType);
         $feDetReq = self::buildFeDetReq($invoice, $invoiceType);
@@ -239,6 +287,81 @@ class InvoiceMapper
             self::COMPROBANTE_NOTA_DEBITO_A,
             self::COMPROBANTE_NOTA_CREDITO_A,
         ], true);
+    }
+
+    /**
+     * Determina si el tipo de comprobante es Factura B o variante
+     */
+    private static function isFacturaB(int $invoiceType): bool
+    {
+        return in_array($invoiceType, [
+            self::COMPROBANTE_FACTURA_B,
+            self::COMPROBANTE_NOTA_DEBITO_B,
+            self::COMPROBANTE_NOTA_CREDITO_B,
+        ], true);
+    }
+
+    /**
+     * Determina si el tipo de comprobante es Factura C o variante
+     */
+    private static function isFacturaC(int $invoiceType): bool
+    {
+        return in_array($invoiceType, [
+            self::COMPROBANTE_FACTURA_C,
+            self::COMPROBANTE_NOTA_DEBITO_C,
+            self::COMPROBANTE_NOTA_CREDITO_C,
+        ], true);
+    }
+
+    /**
+     * Valida que la combinación tipo de comprobante + condición IVA del receptor
+     * cumpla con las reglas de facturación AFIP.
+     *
+     * Reglas según tipo de EMISOR:
+     * - RI emite Factura A → solo a RI o Monotributista
+     * - RI emite Factura B → solo a Consumidor Final o Exento
+     * - Monotributista/Exento emite Factura C → a cualquier receptor
+     *
+     * @throws AfipValidationException Si la combinación es inválida
+     */
+    private static function validateInvoiceTypeAndReceiver(int $invoiceType, int $condicionReceptor): void
+    {
+        if (self::isFacturaA($invoiceType)) {
+            self::assertReceptorPermitido(
+                $condicionReceptor,
+                self::RECEPTORES_FACTURA_A,
+                'Factura A solo puede emitirse a Responsable Inscripto o Monotributista. '
+                . 'Para Consumidor Final o Exento use Factura B.'
+            );
+            return;
+        }
+
+        if (self::isFacturaB($invoiceType)) {
+            self::assertReceptorPermitido(
+                $condicionReceptor,
+                self::RECEPTORES_FACTURA_B,
+                'Factura B solo puede emitirse a Consumidor Final o Exento. '
+                . 'Para RI o Monotributista use Factura A.'
+            );
+            return;
+        }
+
+        // Factura C: Monotributista/Exento puede emitir a cualquier receptor (sin restricción)
+    }
+
+    /**
+     * Valida que el receptor esté en la lista de permitidos.
+     *
+     * @param int $condicionReceptor Código de condición IVA del receptor
+     * @param array<int> $permitidos Lista de códigos permitidos
+     * @param string $mensaje Mensaje de error si no es válido
+     * @throws AfipValidationException
+     */
+    private static function assertReceptorPermitido(int $condicionReceptor, array $permitidos, string $mensaje): void
+    {
+        if (!in_array($condicionReceptor, $permitidos, true)) {
+            throw new AfipValidationException($mensaje);
+        }
     }
 
     /**

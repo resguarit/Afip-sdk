@@ -52,6 +52,9 @@ class WsfeService
         // Resolver y validar CUIT
         $cuit = $this->resolveCuit($cuit);
 
+        // Validar reglas tipo comprobante + condición IVA receptor (antes de llamar a AFIP)
+        InvoiceMapper::validateInvoice($invoice);
+
         $this->log('info', 'Iniciando autorización de comprobante', [
             'point_of_sale' => $invoice['pointOfSale'] ?? null,
             'invoice_type' => $invoice['invoiceType'] ?? null,
