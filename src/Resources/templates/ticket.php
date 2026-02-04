@@ -20,6 +20,7 @@ $condicion_venta = $condicion_venta ?? 'Efectivo';
 $es_factura_a = $es_factura_a ?? false;
 $es_factura_b = $es_factura_b ?? true;
 $es_factura_c = $es_factura_c ?? false;
+$es_factura_a_monotributista = $es_factura_a_monotributista ?? false;
 $iva_contenido = $iva_contenido ?? 0;
 $importe_neto_gravado = $importe_neto_gravado ?? $subtotal;
 $iva_desglose = $iva_desglose ?? [];
@@ -297,6 +298,14 @@ $iva_desglose = $iva_desglose ?? [];
 		<?php endif; ?>
 
 		<div class="divider"></div>
+
+		<?php if ($es_factura_a_monotributista): ?>
+		<div style="border: 1px solid #c00; padding: 4px; margin-bottom: 5px; background-color: #fff;">
+			<p style="margin: 0; font-size: 6px; color: #c00; text-align: center; font-weight: bold; line-height: 1.3;">
+				EL CRÉDITO FISCAL DISCRIMINADO EN EL PRESENTE COMPROBANTE SOLO PODRÁ SER COMPUTADO A EFECTOS DEL PROCEDIMIENTO PERMANENTE DE TRANSICIÓN AL RÉGIMEN GENERAL - CAPÍTULO IV DE LA LEY N.° 27.618.
+			</p>
+		</div>
+		<?php endif; ?>
 
 		<!-- CAE -->
 		<table style="font-size: 9px;">

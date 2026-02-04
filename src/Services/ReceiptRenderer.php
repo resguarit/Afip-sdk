@@ -254,6 +254,11 @@ class ReceiptRenderer
         $ivaTotal = (float) ($invoice['totalIva'] ?? $invoice['ImpIVA'] ?? array_sum($ivaDesglose));
         $otrosTributos = (float) ($invoice['tributesTotal'] ?? $invoice['ImpTrib'] ?? 0);
 
+        // Determinar si es Factura A a Monotributista (requiere leyenda especial Ley 27.618)
+        $condicionReceptorTexto = strtolower($invoice['receiver']['condicion_iva'] ?? '');
+        $esReceptorMonotributista = str_contains($condicionReceptorTexto, 'monotribut');
+        $esFacturaAMonotributista = $esFacturaA && $esReceptorMonotributista;
+
         return array_merge($invoice, [
             'issuer' => [
                 'razon_social' => $invoice['issuer']['razon_social'] ?? 'Razón Social',
@@ -291,6 +296,7 @@ class ReceiptRenderer
             'es_factura_a' => $esFacturaA,
             'es_factura_b' => $esFacturaB,
             'es_factura_c' => $esFacturaC,
+            'es_factura_a_monotributista' => $esFacturaAMonotributista,
             'iva_contenido' => round($ivaContenido, 2),
             'importe_neto_gravado' => round($importeNetoGravado, 2),
             'iva_desglose' => $ivaDesglose,

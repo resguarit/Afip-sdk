@@ -30,6 +30,7 @@ $fecha_vto_pago = $fecha_vto_pago ?? $fecha;
 $es_factura_a = $es_factura_a ?? false;
 $es_factura_b = $es_factura_b ?? true;
 $es_factura_c = $es_factura_c ?? false;
+$es_factura_a_monotributista = $es_factura_a_monotributista ?? false;
 $iva_contenido = $iva_contenido ?? 0;
 $importe_neto_gravado = $importe_neto_gravado ?? $subtotal;
 $iva_desglose = $iva_desglose ?? [];
@@ -360,6 +361,17 @@ $iva_desglose = $iva_desglose ?? [];
 				</div>
 			</td>
 		</tr>
+		<?php if ($es_factura_a_monotributista): ?>
+		<tr class="bill-row">
+			<td colspan="3">
+				<div style="border: 1px solid #c00; padding: 8px 10px; margin: 10px 0; background-color: #fff;">
+					<p style="margin: 0; font-size: 10px; color: #c00; text-align: center; font-weight: bold; line-height: 1.4;">
+						EL CRÉDITO FISCAL DISCRIMINADO EN EL PRESENTE COMPROBANTE SOLO PODRÁ SER COMPUTADO A EFECTOS DEL PROCEDIMIENTO PERMANENTE DE TRANSICIÓN AL RÉGIMEN GENERAL - CAPÍTULO IV DE LA LEY N.° 27.618.
+					</p>
+				</div>
+			</td>
+		</tr>
+		<?php endif; ?>
 		<!-- QR (izq) | CAE (der) -->
 		<tr class="bill-row row-qrcode">
 			<td class="qr-cell">
