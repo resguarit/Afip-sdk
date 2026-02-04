@@ -73,6 +73,19 @@ class ReceiptRenderer
         $data['tipo_letra'] = self::TIPO_LETRAS[$response->invoiceType] ?? 'B';
         $data['tipo_codigo'] = $response->invoiceType;
         $data['qr_src'] = $data['qr_data_uri'] ?? '';
+
+        // Ajustes específicos para Factura A4 (Pedido: "Monotributista" -> "Monotributo")
+        // Issuer: buildTemplateData ya lo convirtió a "Responsable Monotributo", lo ajustamos a "Monotributo"
+        if (stripos($data['issuer']['condicion_iva'], 'Monotributo') !== false) {
+            $data['issuer']['condicion_iva'] = 'Monotributo';
+        }
+
+        // Receiver: puede venir como "Monotributista", ajustamos a "Monotributo"
+        $condReceiver = $data['receiver']['condicion_iva'] ?? '';
+        if (stripos($condReceiver, 'Monotributista') !== false || stripos($condReceiver, 'Monotributo') !== false) {
+            $data['receiver']['condicion_iva'] = 'Monotributo';
+        }
+
         return $this->renderTemplate('factura-a4.php', $data);
     }
 
@@ -241,12 +254,12 @@ class ReceiptRenderer
         $ivaTotal = (float) ($invoice['totalIva'] ?? $invoice['ImpIVA'] ?? array_sum($ivaDesglose));
         $otrosTributos = (float) ($invoice['tributesTotal'] ?? $invoice['ImpTrib'] ?? 0);
 
-        return array_merge([
+        return array_merge($invoice, [
             'issuer' => [
                 'razon_social' => $invoice['issuer']['razon_social'] ?? 'Razón Social',
                 'domicilio' => $invoice['issuer']['domicilio_fiscal'] ?? $invoice['issuer']['domicilio'] ?? '',
                 'cuit' => $cuit,
-                'condicion_iva' => $invoice['issuer']['condicion_iva'] ?? 'Responsable Inscripto',
+                'condicion_iva' => $this->formatCondicionIva($invoice['issuer']['condicion_iva'] ?? 'Responsable Inscripto'),
                 'iibb' => $invoice['issuer']['iibb'] ?? '',
                 'inicio_actividad' => $invoice['issuer']['inicio_actividad'] ?? '',
             ],
@@ -281,7 +294,7 @@ class ReceiptRenderer
             'iva_contenido' => round($ivaContenido, 2),
             'importe_neto_gravado' => round($importeNetoGravado, 2),
             'iva_desglose' => $ivaDesglose,
-        ], $invoice);
+        ]);
     }
 
     /**
@@ -308,6 +321,17 @@ class ReceiptRenderer
         }
 
         return round($ivaContenido, 2);
+    }
+
+    private function formatCondicionIva(string $condicion): string
+    {
+        if (stripos($condicion, 'Responsable Inscripto') !== false) {
+            return 'IVA Responsable Inscripto';
+        }
+        if (stripos($condicion, 'Monotributo') !== false) {
+            return 'Responsable Monotributo';
+        }
+        return $condicion;
     }
 
     private function conceptoTexto(int $concepto): string

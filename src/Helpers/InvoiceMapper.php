@@ -35,21 +35,25 @@ class InvoiceMapper
         $totalExento = $invoice['totalExento'] ?? $invoice['exemptAmount'] ?? 0;
         $totalTributos = $invoice['totalTributos'] ?? $invoice['tributesTotal'] ?? 0;
         
-        // Determinar valor por defecto de CondicionIVAReceptorId según tipo de comprobante
-        // Factura A (1) -> Default: 1 (Responsable Inscripto)
-        // Factura B (6) u otra -> Default: 5 (Consumidor Final)
+        // Determinar CondicionIVAReceptorId (obligatorio por RG 5616)
+        // Códigos AFIP: 1=RI, 2=No Inscripto, 4=Exento, 5=Consumidor Final, 6=Monotributo, etc.
+        // ARCA permite Factura A a Monotributistas (código 6)
         $invoiceType = (int) ($invoice['invoiceType'] ?? 1);
         $defaultCondicionIVA = ($invoiceType === 1) ? 1 : 5;
-        
+        $condicionIVAReceptor = (int) (
+            $invoice['receiverConditionIVA']
+            ?? $invoice['condicionIVAReceptorId']
+            ?? $invoice['receiver']['condicion_iva_id']
+            ?? $invoice['receiver']['condicionIVAId']
+            ?? self::resolveCondicionIvaFromDescription($invoice['receiver']['condicion_iva'] ?? null)
+            ?? $defaultCondicionIVA
+        );
+
         $feDetReqItem = [
             'Concepto' => (int) ($invoice['concept'] ?? 1),
-            'DocTipo' => (int) ($invoice['customerDocumentType'] ?? 99),
-            'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? '0'),
-            // Campo obligatorio por RG 5616: Condición frente al IVA del receptor
-            // 1=IVA Resp. Inscripto, 4=Exento, 5=Consumidor Final, 6=Monotributo
-            // Si es Factura A (1) -> Default: 1 (Responsable Inscripto)
-            // Si es Factura B (6) u otra -> Default: 5 (Consumidor Final)
-            'CondicionIVAReceptorId' => (int) ($invoice['receiverConditionIVA'] ?? $invoice['condicionIVAReceptorId'] ?? $defaultCondicionIVA),
+            'DocTipo' => (int) ($invoice['customerDocumentType'] ?? $invoice['receiver']['tipo_doc'] ?? 99),
+            'DocNro' => (int) str_replace('-', '', $invoice['customerDocumentNumber'] ?? $invoice['customerCuit'] ?? $invoice['receiver']['nro_doc'] ?? '0'),
+            'CondicionIVAReceptorId' => $condicionIVAReceptor,
             'CbteDesde' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteHasta' => (int) ($invoice['invoiceNumber'] ?? 0),
             'CbteFch' => (string) ($invoice['date'] ?? date('Ymd')),
@@ -178,6 +182,37 @@ class InvoiceMapper
                 'FeDetReq' => $feDetReq,
             ],
         ];
+    }
+
+    /**
+     * Resuelve el código de condición IVA desde una descripción textual
+     * Códigos AFIP: 1=RI, 2=No Inscripto, 4=Exento, 5=Consumidor Final, 6=Monotributo
+     *
+     * @param string|null $descripcion
+     * @return int|null Código AFIP o null si no se puede determinar
+     */
+    private static function resolveCondicionIvaFromDescription(?string $descripcion): ?int
+    {
+        if ($descripcion === null || $descripcion === '') {
+            return null;
+        }
+        $d = strtolower(trim($descripcion));
+        if (str_contains($d, 'monotribut') || str_contains($d, 'monotributo')) {
+            return 6;
+        }
+        if (str_contains($d, 'responsable inscripto') || str_contains($d, 'inscripto')) {
+            return 1;
+        }
+        if (str_contains($d, 'consumidor final') || str_contains($d, 'consumidor')) {
+            return 5;
+        }
+        if (str_contains($d, 'exento')) {
+            return 4;
+        }
+        if (str_contains($d, 'no inscripto')) {
+            return 2;
+        }
+        return null;
     }
 
     /**
