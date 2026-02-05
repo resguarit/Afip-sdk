@@ -191,12 +191,14 @@ $iva_desglose = $iva_desglose ?? [];
 		<!-- RECEPTOR -->
 		<div class="info-fiscal">
 			<?= htmlspecialchars(strtoupper($receiver['condicion_iva'] ?? 'CONSUMIDOR FINAL')) ?>
-			<?php if (!empty($receiver['nombre']) && $receiver['nombre'] !== 'Consumidor Final'): ?>
+			<?php
+			$hasDoc = !empty($receiver['nro_doc']) && $receiver['nro_doc'] !== '0';
+			if (!empty($receiver['nombre']) && $receiver['nombre'] !== 'Consumidor Final' && $hasDoc): ?>
 				<br><?= htmlspecialchars($receiver['nombre']) ?>
 			<?php endif; ?>
-			<?php if (!empty($receiver['nro_doc']) && $receiver['nro_doc'] !== '0'):
-				$isCF = stripos($receiver['condicion_iva'] ?? '', 'Consumidor') !== false;
-				$docLabel = $isCF ? 'Doc' : 'CUIL/CUIT';
+			<?php if ($hasDoc):
+				$tipoDoc = (int) ($receiver['tipo_doc'] ?? 99);
+				$docLabel = ($tipoDoc == 80 || $tipoDoc == 86) ? 'CUIL/CUIT' : 'Doc';
 				?>
 				<br><?= $docLabel ?>: <?= htmlspecialchars($receiver['nro_doc']) ?>
 			<?php endif; ?>
