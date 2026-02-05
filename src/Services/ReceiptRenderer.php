@@ -74,17 +74,7 @@ class ReceiptRenderer
         $data['tipo_codigo'] = $response->invoiceType;
         $data['qr_src'] = $data['qr_data_uri'] ?? '';
 
-        // Ajustes específicos para Factura A4 (Pedido: "Monotributista" -> "Monotributo")
-        // Issuer: buildTemplateData ya lo convirtió a "Responsable Monotributo", lo ajustamos a "Monotributo"
-        if (stripos($data['issuer']['condicion_iva'], 'Monotributo') !== false) {
-            $data['issuer']['condicion_iva'] = 'Monotributo';
-        }
 
-        // Receiver: puede venir como "Monotributista", ajustamos a "Monotributo"
-        $condReceiver = $data['receiver']['condicion_iva'] ?? '';
-        if (stripos($condReceiver, 'Monotributista') !== false || stripos($condReceiver, 'Monotributo') !== false) {
-            $data['receiver']['condicion_iva'] = 'Monotributo';
-        }
 
         return $this->renderTemplate('factura-a4.php', $data);
     }
