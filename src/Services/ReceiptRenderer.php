@@ -272,7 +272,7 @@ class ReceiptRenderer
                 'tipo_doc' => $invoice['receiver']['tipo_doc'] ?? $invoice['customerDocumentType'] ?? 99,
                 'nro_doc' => $invoice['receiver']['nro_doc'] ?? $invoice['customerDocumentNumber'] ?? '0',
                 'nombre' => $invoice['receiver']['nombre'] ?? $invoice['receiverNombre'] ?? 'Consumidor Final',
-                'condicion_iva' => $invoice['receiver']['condicion_iva'] ?? 'Consumidor final',
+                'condicion_iva' => $this->formatCondicionIva($invoice['receiver']['condicion_iva'] ?? 'Consumidor final'),
                 'domicilio' => $invoice['receiver']['domicilio'] ?? '',
             ],
             'comprobante' => [
@@ -334,7 +334,7 @@ class ReceiptRenderer
         if (stripos($condicion, 'Responsable Inscripto') !== false) {
             return 'IVA Responsable Inscripto';
         }
-        if (stripos($condicion, 'Monotributo') !== false) {
+        if (stripos($condicion, 'Monotributo') !== false || stripos($condicion, 'Monotributista') !== false) {
             return 'Responsable Monotributo';
         }
         return $condicion;

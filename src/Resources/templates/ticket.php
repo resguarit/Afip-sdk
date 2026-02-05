@@ -197,7 +197,7 @@ $iva_desglose = $iva_desglose ?? [];
 			<?php if (!empty($receiver['nro_doc']) && $receiver['nro_doc'] !== '0'):
 				$isCF = stripos($receiver['condicion_iva'] ?? '', 'Consumidor') !== false;
 				$docLabel = $isCF ? 'Doc' : 'CUIL/CUIT';
-			?>
+				?>
 				<br><?= $docLabel ?>: <?= htmlspecialchars($receiver['nro_doc']) ?>
 			<?php endif; ?>
 		</div>
@@ -208,18 +208,20 @@ $iva_desglose = $iva_desglose ?? [];
 		<?php if ($es_factura_a): ?>
 			<table style="font-size: 8px; font-weight: bold; margin-bottom: 2px;">
 				<tr>
-					<td style="width: 12%;" class="left">CANT</td>
-					<td style="width: 33%;" class="left">P.UNIT</td>
-					<td style="width: 15%;" class="center">IVA</td>
-					<td style="width: 40%;" class="right">IMPORTE</td>
+					<td style="width: 10%;" class="left">CANT</td>
+					<td style="width: 30%;" class="left">DESC</td>
+					<td style="width: 20%;" class="left">P.UNIT</td>
+					<td style="width: 10%;" class="center">IVA</td>
+					<td style="width: 30%;" class="right">IMPORTE</td>
 				</tr>
 			</table>
 		<?php else: ?>
 			<table style="font-size: 8px; font-weight: bold; margin-bottom: 2px;">
 				<tr>
-					<td style="width: 15%;" class="left">CANT</td>
-					<td style="width: 40%;" class="left">P.UNIT</td>
-					<td style="width: 45%;" class="right">IMPORTE</td>
+					<td style="width: 10%;" class="left">CANT</td>
+					<td style="width: 40%;" class="left">DESC</td>
+					<td style="width: 20%;" class="left">P.UNIT</td>
+					<td style="width: 30%;" class="right">IMPORTE</td>
 				</tr>
 			</table>
 		<?php endif; ?>
@@ -237,22 +239,23 @@ $iva_desglose = $iva_desglose ?? [];
 				$subtotalItem = (float) ($item['subtotal_calc'] ?? ($precio * $cant));
 			}
 			?>
-			<div class="prod-desc"><?= $desc ?></div>
 			<?php if ($es_factura_a): ?>
 				<table class="mono">
 					<tr>
-						<td style="width: 12%;" class="left"><?= number_format($cant, 0) ?></td>
-						<td style="width: 33%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
-						<td style="width: 15%;" class="center"><?= number_format($alicuota, 0) ?>%</td>
-						<td style="width: 40%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
+						<td style="width: 10%;" class="left"><?= number_format($cant, 0) ?></td>
+						<td style="width: 30%;" class="left" style="font-size: 8px;"><?= $desc ?></td>
+						<td style="width: 20%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
+						<td style="width: 10%;" class="center"><?= number_format($alicuota, 0) ?>%</td>
+						<td style="width: 30%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
 					</tr>
 				</table>
 			<?php else: ?>
 				<table class="mono">
 					<tr>
-						<td style="width: 15%;" class="left"><?= number_format($cant, 0) ?></td>
-						<td style="width: 40%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
-						<td style="width: 45%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
+						<td style="width: 10%;" class="left"><?= number_format($cant, 0) ?></td>
+						<td style="width: 40%;" class="left" style="font-size: 8px;"><?= $desc ?></td>
+						<td style="width: 20%;" class="left">$<?= number_format($precio, 2, ',', '.') ?></td>
+						<td style="width: 30%;" class="right bold">$<?= number_format($subtotalItem, 2, ',', '.') ?></td>
 					</tr>
 				</table>
 			<?php endif; ?>
@@ -300,11 +303,12 @@ $iva_desglose = $iva_desglose ?? [];
 		<div class="divider"></div>
 
 		<?php if ($es_factura_a_monotributista): ?>
-		<div style="border: 1px solid #c00; padding: 4px; margin-bottom: 5px; background-color: #fff;">
-			<p style="margin: 0; font-size: 6px; color: #c00; text-align: center; font-weight: bold; line-height: 1.3;">
-				EL CRÉDITO FISCAL DISCRIMINADO EN EL PRESENTE COMPROBANTE SOLO PODRÁ SER COMPUTADO A EFECTOS DEL PROCEDIMIENTO PERMANENTE DE TRANSICIÓN AL RÉGIMEN GENERAL - CAPÍTULO IV DE LA LEY N.° 27.618.
-			</p>
-		</div>
+			<div style="border: 1px solid #c00; padding: 4px; margin-bottom: 5px; background-color: #fff;">
+				<p style="margin: 0; font-size: 6px; color: #c00; text-align: center; font-weight: bold; line-height: 1.3;">
+					EL CRÉDITO FISCAL DISCRIMINADO EN EL PRESENTE COMPROBANTE SOLO PODRÁ SER COMPUTADO A EFECTOS DEL
+					PROCEDIMIENTO PERMANENTE DE TRANSICIÓN AL RÉGIMEN GENERAL - CAPÍTULO IV DE LA LEY N.° 27.618.
+				</p>
+			</div>
 		<?php endif; ?>
 
 		<!-- CAE -->
